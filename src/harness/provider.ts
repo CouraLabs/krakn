@@ -12,15 +12,8 @@ import { existsSync, readFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
 import { createProvider, envApiKeyAuth, type Api, type Model, type MutableModels, type ProviderAuth, type ProviderStreams } from "@earendil-works/pi-ai"
-
-interface ProviderConfig {
-  id: string
-  name?: string
-  baseUrl?: string
-  headers?: Record<string, string>
-  apiKey?: string
-  models: Model<Api>[]
-}
+import type { ProviderConfig } from "./harness-types"
+import { app } from "../globals"
 
 /** Lazy API factory per `KnownApi` value. */
 const API_LOADERS: Record<string, () => ProviderStreams> = {
@@ -54,7 +47,7 @@ function resolveEnvStrings(entry: ProviderConfig): void {
 
 /** Load `~/.krakn/providers.json` and register each entry as a provider. */
 function loadCustomProviders(models: MutableModels): void {
-  const configPath = join(homedir(), ".krakn", "providers.json")
+  const configPath = join(app.settingsPath, "providers.json")
   if (!existsSync(configPath)) return
 
   let config: ProviderConfig[]

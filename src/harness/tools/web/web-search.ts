@@ -1,4 +1,3 @@
-import { type Static, Type } from "typebox";
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { loadPrompt } from "../prompt-loader";
 import { throwIfAborted } from "../runtime";
@@ -11,48 +10,17 @@ import {
 	truncateText,
 	withPage,
 } from "./web";
+import {
+	searchSchema,
+	type SearchResult,
+	type WebSearchToolDetails,
+} from "./web-types";
 
 const SEARCH_DESC = loadPrompt(new URL("../../prompts/websearch.md", import.meta.url))
 	.replaceAll("{{MAX_SEARCH_DEPTH}}", String(MAX_SEARCH_DEPTH))
 	.replaceAll("{{DEFAULT_SEARCH_DEPTH}}", String(DEFAULT_SEARCH_DEPTH))
 	.replaceAll("{{DEFAULT_MAX_LENGTH}}", String(DEFAULT_MAX_LENGTH))
 	.trim();
-
-interface SearchResult {
-	title: string;
-	url: string;
-	snippet: string;
-}
-
-const searchSchema = Type.Object({
-	query: Type.String({
-		minLength: 1,
-		description: "Search query. Natural language or keywords.",
-	}),
-	depth: Type.Optional(
-		Type.Integer({
-			minimum: 1,
-			maximum: MAX_SEARCH_DEPTH,
-			description: `How many results to fetch and return as Markdown (1-${MAX_SEARCH_DEPTH}). Default ${DEFAULT_SEARCH_DEPTH}.`,
-		}),
-	),
-	maxLength: Type.Optional(
-		Type.Integer({
-			minimum: 1_000,
-			description: `Maximum number of Markdown characters to return across all fetched pages. Default ${DEFAULT_MAX_LENGTH}.`,
-		}),
-	),
-});
-
-export type WebSearchToolInput = Static<typeof searchSchema>;
-
-export interface WebSearchToolDetails {
-	results: Array<{ title: string; url: string }>;
-	depth: number;
-	truncated: boolean;
-	fetched: number;
-	failures: string[];
-}
 
 const DDG_SEARCH_URL = "https://html.duckduckgo.com/html/";
 

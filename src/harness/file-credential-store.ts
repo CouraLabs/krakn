@@ -2,6 +2,7 @@ import type { CredentialStore, Credential, AuthOperationOptions, CredentialInfo 
 import { existsSync, readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
+import { app } from "../globals";
 
 /**
  * File-backed credential store persisting to `~/.krakn/auth.json`
@@ -18,7 +19,7 @@ export class FileCredentialStore implements CredentialStore {
   private chains = new Map<string, Promise<void>>();
   private loaded = false;
 
-  constructor(filePath: string = join(homedir(), ".krakn", "auth.json")) {
+  constructor(filePath: string = join(app.settingsPath, "auth.json")) {
     this.filePath = filePath;
   }
 

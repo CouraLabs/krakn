@@ -1,18 +1,11 @@
-import { type Static, Type } from "typebox";
 import { resolveToolPath } from "../path-utils.ts";
 import type { NodeExecutionEnv } from "../tool-context.ts";
 import { getOrThrow, type AgentTool } from "@earendil-works/pi-agent-core";
 import { withFileMutationQueue } from "../file-mutation-queue.ts";
 import { loadPrompt } from "../prompt-loader.ts";
+import { writeSchema } from "./write-types.ts";
 
 const WRITE_DESC = loadPrompt(new URL("../../prompts/write.md", import.meta.url)).trim();
-
-const writeSchema = Type.Object({
-	path: Type.String({ description: "Path to the file to write (relative or absolute)" }),
-	content: Type.String({ description: "Content to write to the file" }),
-});
-
-export type WriteToolInput = Static<typeof writeSchema>;
 
 export function createWriteTool(env: NodeExecutionEnv): AgentTool<
 	typeof writeSchema,

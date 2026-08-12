@@ -1,5 +1,4 @@
 import { type AgentTool } from "@earendil-works/pi-agent-core";
-import { type Static, Type } from "typebox";
 import { spawn } from "child_process";
 import { createInterface } from "readline";
 import { rgPath } from "@vscode/ripgrep";
@@ -11,36 +10,24 @@ import { loadPrompt } from "../prompt-loader";
 import { rememberReadSnapshot } from "../read-snapshot";
 import { throwIfAborted } from "../runtime";
 import type { NodeExecutionEnv } from "../tool-context";
+import {
+	DEFAULT_LIMIT,
+	MAX_LIMIT,
+	grepSchema,
+	type GrepToolDetails,
+	type LineRange,
+	type RgEvent,
+	type RgMatchEvent,
+	type RgSearchResult,
+} from "./grep-types";
 
 const GREP_DESC = loadPrompt(new URL("../../prompts/grep.md", import.meta.url)).trim();
 
-const DEFAULT_LIMIT = 50;
-const MAX_LIMIT = 200;
 const STDERR_MAX_BYTES = 64 * 1024;
 
 // Uses @vscode/ripgrep's bundled binary path so the tool does not depend on
 // `rg` being on PATH. The binary always exists once @vscode/ripgrep resolves.
 const RG_BIN = rgPath;
-
-/** rg --json match event. */
-interface RgMatchEvent {
-	type: "match";
-	data: {
-		path: { text: string };
-		line_number: number;
-	};
-}
-
-interface RgEvent {
-	type: string;
-	data: unknown;
-}
-
-/** Inclusive range [start, end] of 1-based line numbers. */
-interface LineRange {
-	start: number;
-	end: number;
-}
 
 /** Merge a new range into an existing sorted, non-overlapping list. */
 function mergeRange(ranges: LineRange[], range: LineRange): void {
@@ -59,12 +46,6 @@ function mergeRange(ranges: LineRange[], range: LineRange): void {
 	remaining.push(merged);
 	remaining.sort((a, b) => a.start - b.start);
 	ranges.splice(0, ranges.length, ...remaining);
-}
-
-interface RgSearchResult {
-	matchesByFile: Map<string, number[]>;
-	matches: number;
-	truncated: boolean;
 }
 
 function addMatch(
@@ -220,44 +201,6 @@ function runRg(
 			settleResolve();
 		});
 	});
-}
-
-const grepSchema = Type.Object({
-	pattern: Type.String({ description: "Search pattern (regex unless literal: true)" }),
-	path: Type.Optional(
-		Type.String({ description: "File or directory to search (defaults to cwd)" }),
-	),
-	glob: Type.Optional(
-		Type.String({ description: 'Filename glob filter, e.g. "**/*.ts"' }),
-	),
-	ignoreCase: Type.Optional(
-		Type.Boolean({ description: "Case-insensitive matching" }),
-	),
-	literal: Type.Optional(
-		Type.Boolean({ description: "Treat pattern as a literal string, not a regex" }),
-	),
-	context: Type.Optional(
-		Type.Integer({
-			minimum: 0,
-			maximum: 5,
-			description: "Number of context lines to show around each match (0–5, default 0)",
-		}),
-	),
-	limit: Type.Optional(
-		Type.Integer({
-			minimum: 1,
-			maximum: MAX_LIMIT,
-			description: `Maximum matched lines to return (default ${DEFAULT_LIMIT}, max ${MAX_LIMIT})`,
-		}),
-	),
-});
-
-export type GrepToolInput = Static<typeof grepSchema>;
-
-export interface GrepToolDetails {
-	matches: number;
-	files: number;
-	truncated: boolean;
 }
 
 export function createGrepTool(

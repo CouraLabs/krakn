@@ -6,7 +6,6 @@ import {
 	type AgentTool,
 	type TruncationResult,
 } from "@earendil-works/pi-agent-core";
-import { type Static, Type } from "typebox";
 import { access as fsAccess } from "fs/promises";
 import { readFile as fsReadFile } from "fs/promises";
 import { constants } from "fs";
@@ -20,6 +19,7 @@ import { normalizeToLF, resolveMutationTargetPath, stripBom } from "../fs-write"
 import { rememberReadSnapshot } from "../read-snapshot";
 import { clearAppliedPayload } from "../noop-loop-guard";
 import type { NodeExecutionEnv } from "../tool-context";
+import { readSchema, type ReadToolDetails } from "./read-types";
 
 const READ_DESC = loadPrompt(new URL("../../prompts/read.md", import.meta.url))
 	.replaceAll("{{DEFAULT_MAX_LINES}}", String(DEFAULT_MAX_LINES))
@@ -114,36 +114,6 @@ export function formatHashlineReadPreview(
 		truncation: truncation.truncated ? truncation : undefined,
 		...(nextOffset !== undefined ? { nextOffset } : {}),
 	};
-}
-
-const readSchema = Type.Object({
-	path: Type.String({ description: "Path to the file to read (relative or absolute)" }),
-	offset: Type.Optional(
-		Type.Integer({
-			minimum: 1,
-			description: "Line number to start reading from (1-indexed)",
-		}),
-	),
-	limit: Type.Optional(
-		Type.Integer({
-			minimum: 1,
-			description: "Maximum number of lines to read",
-		}),
-	),
-	raw: Type.Optional(
-		Type.Boolean({
-			description:
-				"Return plain text without LINE#HASH anchors. Saves tokens when you do not plan to edit this file.",
-		}),
-	),
-});
-
-export type ReadToolInput = Static<typeof readSchema>;
-
-export interface ReadToolDetails {
-	truncation?: TruncationResult;
-	snapshotId?: string;
-	nextOffset?: number;
 }
 
 export function createReadTool(

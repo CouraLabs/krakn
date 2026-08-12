@@ -1,4 +1,3 @@
-import { type Static, Type } from "typebox";
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { loadPrompt } from "../prompt-loader";
 import { throwIfAborted } from "../runtime";
@@ -7,27 +6,14 @@ import {
 	fetchPageMarkdown,
 	truncateText,
 } from "./web";
+import {
+	fetchSchema,
+	type WebFetchToolDetails,
+} from "./web-types";
 
 const FETCH_DESC = loadPrompt(new URL("../../prompts/webfetch.md", import.meta.url))
 	.replaceAll("{{DEFAULT_MAX_LENGTH}}", String(DEFAULT_MAX_LENGTH))
 	.trim();
-
-const fetchSchema = Type.Object({
-	url: Type.String({ description: "Full URL to fetch, including scheme (e.g. https://example.com/doc)" }),
-	maxLength: Type.Optional(
-		Type.Integer({
-			minimum: 1_000,
-			description: `Maximum number of Markdown characters to return. Default ${DEFAULT_MAX_LENGTH}.`,
-		}),
-	),
-});
-
-export type WebFetchToolInput = Static<typeof fetchSchema>;
-
-export interface WebFetchToolDetails {
-	url: string;
-	truncated: boolean;
-}
 
 export function createWebFetchTool(): AgentTool<typeof fetchSchema, WebFetchToolDetails | undefined> {
 	return {

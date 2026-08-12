@@ -18,10 +18,7 @@ const MAX_VERSIONS_PER_PATH = 4;
 // 32 MiB soft ceiling, measured in UTF-16 code units (see module comment).
 const MAX_TOTAL_BYTES = 32 * 1024 * 1024;
 
-interface PathEntry {
-	// Versions in newest-first order.
-	versions: string[];
-}
+import type { PathEntry } from "./tools-types";
 
 // Paths stored in MRU-first order (index 0 = most recently used).
 const pathOrder: string[] = [];

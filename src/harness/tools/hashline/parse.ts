@@ -12,24 +12,11 @@ import {
 	HASH_LENGTH_MIN,
 	HASH_LENGTH_MAX,
 } from "./hash";
+import type { Anchor, HashlineEdit, HashlineToolEdit } from "./hashline-types";
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
-export type Anchor = { line: number; hash: string; textHint?: string };
-export type HashlineEdit =
-	| { op: "replace"; pos: Anchor; end?: Anchor; lines: string[] }
-	| { op: "append"; pos?: Anchor; lines: string[] }
-	| { op: "prepend"; pos?: Anchor; lines: string[] }
-	| { op: "replace_text"; oldText: string; newText: string };
-
-export type HashlineToolEdit = {
-	op: string;
-	pos?: string;
-	end?: string;
-	lines?: string[];
-	oldText?: string;
-	newText?: string;
-};
+export type { Anchor, HashlineEdit, HashlineToolEdit } from "./hashline-types";
 
 /**
  * Display-prefix rejection regexes. These patterns detect (and reject)

@@ -6,12 +6,11 @@ import {
   getOrThrow,
   type AgentTool,
   type ExecutionToolContext, 
-  type ShellCaptureProgress, 
-  type TruncationResult 
+  type ShellCaptureProgress 
 } from "@earendil-works/pi-agent-core";
-import { type Static, Type } from "typebox";
 import { NodeExecutionEnv } from "../tool-context";
 import { loadPrompt } from "../prompt-loader";
+import { bashSchema, type BashToolDetails, type BashExecution, type BashToolOptions } from "./bash-types";
 
 const BASH_DESC = loadPrompt(new URL("../../prompts/bash.md", import.meta.url))
 	.replaceAll("{{DEFAULT_MAX_LINES}}", String(DEFAULT_MAX_LINES))
@@ -20,36 +19,6 @@ const BASH_DESC = loadPrompt(new URL("../../prompts/bash.md", import.meta.url))
 
 const MAX_TIMEOUT_SECONDS = 2_147_483_647 / 1000;
 const BASH_UPDATE_THROTTLE_MS = 100;
-
-const bashSchema = Type.Object({
-	command: Type.String({ description: "Bash command to execute" }),
-	timeout: Type.Optional(Type.Number({ description: "Timeout in seconds (optional, no default timeout)" })),
-});
-
-export type BashToolInput = Static<typeof bashSchema>;
-
-export interface BashToolDetails {
-	truncation?: TruncationResult;
-	fullOutputPath?: string;
-}
-
-export interface BashExecution {
-	command: string;
-	cwd: string;
-	env: Record<string, string>;
-	inheritEnv: boolean;
-}
-
-export type BashPrepare<TContext extends ExecutionToolContext = ExecutionToolContext> = (
-	execution: BashExecution,
-	context: TContext,
-	signal?: AbortSignal,
-) => void | Promise<void>;
-
-export interface BashToolOptions<TContext extends ExecutionToolContext = ExecutionToolContext> {
-	commandPrefix?: string;
-	prepare?: BashPrepare<TContext>;
-}
 
 function validateTimeout(timeout: number | undefined): void {
 	if (timeout === undefined) return;

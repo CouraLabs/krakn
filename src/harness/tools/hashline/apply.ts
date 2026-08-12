@@ -14,25 +14,16 @@ import {
 	hintMatchesLine,
 	hintHasSignal,
 } from "./hash";
-import {
-	getHashlineBarePrefixRe,
-	type Anchor,
-	type HashlineEdit,
-} from "./parse";
+import { getHashlineBarePrefixRe } from "./parse";
 import { computeChangedLineRange } from "./format";
-
-interface HashMismatch {
-	line: number;
-	expected: string;
-	actual: string;
-	textHint?: string;
-}
-
-interface NoopEdit {
-	editIndex: number;
-	loc: string;
-	currentContent: string;
-}
+import type {
+	Anchor,
+	HashlineEdit,
+	HashMismatch,
+	LineIndex,
+	NoopEdit,
+	ResolvedEditSpan,
+} from "./hashline-types";
 
 // ─── Mismatch formatting ────────────────────────────────────────────────
 
@@ -202,28 +193,6 @@ function warnBareHashPrefixLines(
 	}
 }
 
-
-type ResolvedEditSpan = {
-	kind: "replace" | "insert";
-	index: number;
-	label: string;
-	start: number;
-	end: number;
-	replacement: string;
-	boundary?: number;
-	insertMode?: "append-empty-origin" | "prepend-empty-origin";
-};
-
-type LineIndex = {
-	fileLines: string[];
-	lineStarts: number[];
-	hasTerminalNewline: boolean;
-	/**
-	 * Line count as the model sees it in read output: excludes the trailing
-	 * sentinel element produced by split("\n") on a newline-terminated file.
-	 */
-	visibleLineCount: number;
-};
 
 function buildLineIndex(content: string): LineIndex {
 	const fileLines = content.split("\n");

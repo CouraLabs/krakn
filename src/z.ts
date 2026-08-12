@@ -1,7 +1,7 @@
 import { createKraknAgent } from "./harness/agent";
 
 const agent = await createKraknAgent(process.cwd())
-agent.newSession()
+await agent.newSession()
 
 console.log(agent.model())
 

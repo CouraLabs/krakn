@@ -1,5 +1,6 @@
 import { open as fsOpen, stat as fsStat } from "fs/promises";
 import { fileTypeFromBuffer } from "file-type";
+import type { LoadedFile } from "./tools-types";
 
 const IMAGE_MIME_TYPES = new Set<string>([
 	"image/jpeg",
@@ -19,12 +20,6 @@ function isTextLikeMimeType(mimeType: string): boolean {
 }
 
 const FILE_TYPE_SNIFF_BYTES = 8192;
-
-export type LoadedFile =
-	| { kind: "directory" }
-	| { kind: "image"; mimeType: string }
-	| { kind: "text"; text: string; hadUtf8DecodeErrors?: true }
-	| { kind: "binary"; description: string };
 
 function hasNullByte(buffer: Uint8Array): boolean {
 	return buffer.includes(0);

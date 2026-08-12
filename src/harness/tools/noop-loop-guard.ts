@@ -6,10 +6,7 @@
 /** @public */
 export const NOOP_HARD_LIMIT = 3;
 
-interface NoopEntry {
-	payloadKey: string;
-	count: number;
-}
+import type { NoopEntry } from "./tools-types";
 
 const noopTracker = new Map<string, NoopEntry>();
 

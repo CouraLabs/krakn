@@ -23,9 +23,13 @@ import { throwIfAborted } from "../runtime";
 import {
 	buildChangedResponse,
 	buildNoopResponse,
-	type EditMeta,
-	type HashlineEditToolDetails,
 } from "./edit-response";
+import type {
+	EditMeta,
+	EditPipelineResult,
+	EditRequestParams,
+	HashlineEditToolDetails,
+} from "./edit-types";
 import {
 	isDuplicateAppliedPayload,
 	recordAppliedEdit,
@@ -161,23 +165,6 @@ const hashlineEditToolSchemaNoReplaceText = Type.Object(
 	},
 	{ additionalProperties: false },
 );
-export type EditRequestParams = {
-	path: string;
-	edits: HashlineToolEdit[];
-};
-
-type EditPipelineResult = {
-	path: string;
-	originalNormalized: string;
-	result: string;
-	bom: string;
-	originalEnding: "\r\n" | "\n";
-	hadUtf8DecodeErrors: boolean;
-	warnings: string[];
-	noopEdits?: { editIndex: number; loc: string; currentContent: string }[];
-	firstChangedLine?: number;
-	lastChangedLine?: number;
-};
 
 const EDIT_DESC = loadPrompt(new URL("../../prompts/edit.md", import.meta.url)).trim();
 

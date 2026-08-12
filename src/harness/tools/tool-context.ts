@@ -178,11 +178,7 @@ async function findBashOnPath(): Promise<string | null> {
 	return firstMatch && (await pathExists(firstMatch)) ? firstMatch : null;
 }
 
-interface ShellConfig {
-	shell: string;
-	args: string[];
-	commandTransport?: "argv" | "stdin";
-}
+import type { ShellConfig } from "./tools-types";
 
 function isLegacyWslBashPath(path: string): boolean {
 	const normalized = path.replace(/\//g, "\\").toLowerCase();

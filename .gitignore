@@ -27,6 +27,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .cache
 *.tsbuildinfo
 
+# krakn session store
+.krakn
+
 # IntelliJ based IDEs
 .idea
 

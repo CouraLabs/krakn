@@ -1,11 +1,6 @@
 import { stat } from "fs/promises";
 import { resolveMutationTargetPath } from "./fs-write";
-
-export type SnapshotInfo = {
-	snapshotId: string;
-	mtimeMs: number;
-	size: number;
-};
+import type { SnapshotInfo } from "./tools-types";
 
 function formatSnapshotId(canonicalPath: string, info: { mtimeMs: number; size: number }): string {
 	return `v1|${canonicalPath}|${info.mtimeMs}|${info.size}`;

@@ -7,53 +7,17 @@
 
 import { computePatchRelativePath, generateDiffString, generateUnifiedPatch } from "./edit-diff";
 import { computeAffectedLineRange, formatHashlineRegion } from "../hashline";
+import type {
+	EditClassification,
+	EditMeta,
+	HashlineEditToolDetails,
+	NoopEditEntry,
+	NoopResponseInput,
+	SuccessResponseInput,
+	ToolResult,
+} from "./edit-types";
 
 const CHANGED_ANCHOR_TEXT_BUDGET_BYTES = 50 * 1024;
-
-type ToolResult = {
-	content: Array<{ type: "text"; text: string }>;
-	isError?: boolean;
-	details: HashlineEditToolDetails;
-};
-
-export type EditClassification = "applied" | "noop";
-
-export type HashlineEditToolDetails = {
-	diff: string;
-	/** Standard git-style unified patch; empty string for noop responses */
-	patch: string;
-	firstChangedLine?: number;
-	classification: EditClassification;
-	warnings: string[];
-};
-
-export type EditMeta = {
-	firstChangedLine?: number;
-	lastChangedLine?: number;
-};
-
-type NoopEditEntry = {
-	editIndex: number;
-	loc: string;
-	currentContent: string;
-};
-
-export interface NoopResponseInput {
-	path: string;
-	noopEdits: NoopEditEntry[] | undefined;
-	warnings: string[] | undefined;
-}
-
-export interface SuccessResponseInput {
-	/** Absolute target path (resolveToCwd output) */
-	resolvedPath: string;
-	/** Directory the patch path is relative to (tool cwd) */
-	patchRoot: string;
-	originalNormalized: string;
-	result: string;
-	warnings: string[] | undefined;
-	editMeta: EditMeta;
-}
 
 function getVisibleLines(text: string): string[] {
 	if (text.length === 0) return [];
