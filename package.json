@@ -1,0 +1,37 @@
+{
+  "name": "krakn",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun --watch src/cli.ts",
+    "dev:z": "bun --watch src/z.ts",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@earendil-works/pi-agent-core": "^0.84.1",
+    "@earendil-works/pi-ai": "^0.84.1",
+    "@opentui/core": "^0.5.1",
+    "@opentui/solid": "^0.5.1",
+    "@tsconfig/bun": "^1.0.10",
+    "@types/node": "^26.2.0",
+    "@vscode/ripgrep": "^1.18.0",
+    "clipboardy": "^5.3.2",
+    "diff": "^9.0.0",
+    "fast-glob": "^3.3.3",
+    "file-type": "^22.0.1",
+    "puppeteer": "^25.6.0",
+    "solid-js": "^1.9.14",
+    "turndown": "^7.2.4",
+    "typebox": "^1.3.13",
+    "ulid": "^3.0.2",
+    "xxhashjs": "^0.2.2"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/xxhashjs": "^0.2.4"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

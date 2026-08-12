@@ -1,0 +1,5 @@
+- Prefer grep over read when locating a symbol, string, or pattern across a file set — it returns hashline anchors ready for edit without a prior read.
+- The pattern is a regular expression unless literal: true; escape or anchor regex metacharacters you mean literally.
+- Results respect .gitignore by default; use path/glob to scope, and only add context once the match set is small.
+- Copy matched LINE#HASH anchors verbatim into edit; do not recompute or guess them.
+- When a search is too broad, narrow in this order: read the match count, scope with path/glob, tighten the pattern, then add context.

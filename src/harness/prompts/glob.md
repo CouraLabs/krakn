@@ -1,0 +1,5 @@
+Find files and directories using glob patterns (fast-glob/glob syntax). Patterns are relative to the search path (default cwd); matches return one per line with a summary. Use this to inspect the project structure or locate files by name/extension/pattern before reading or editing.
+
+Patterns support `*`, `**`, `{a,b}` groups, `?`, and `[chars]`. Set `path` to scope the search to a directory; set `glob`-style `ignore` patterns to exclude matches. By default only files are returned and dotfiles are skipped — set `dot: true` to include entries starting with `.`, or `onlyDirectories: true` to list directories.
+
+Set `limit` to cap results (default 200, max 1000); truncated output names the count and prompts you to narrow the pattern. Use `absolute: true` to get cwd-relative vs absolute paths as needed.

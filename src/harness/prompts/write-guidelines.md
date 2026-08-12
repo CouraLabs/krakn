@@ -1,0 +1,3 @@
+- Use write to create new files or to fully replace a file's contents in one shot.
+- For targeted changes to an existing file, prefer edit with LINE#HASH anchors so unrelated content is preserved and changes are reviewable as a diff.
+- Write complete, valid file content — the tool overwrites wholesale, so a partial payload discards the rest.

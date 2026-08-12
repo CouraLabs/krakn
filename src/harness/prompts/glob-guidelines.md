@@ -1,0 +1,3 @@
+- Use glob to enumerate files/directories quickly instead of guessing paths or running bash ls/find snippets.
+- Narrow broad patterns before editing: scope with path, refine the pattern, or add ignore patterns rather than paging through large result sets.
+- Use onlyDirectories when exploring structure and onlyFiles (the default) when looking for files to read or edit.

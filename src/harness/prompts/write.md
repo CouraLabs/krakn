@@ -1,0 +1,1 @@
+Write content to a file. Creates the file if it doesn't exist, overwrites it if it does, and automatically creates parent directories. Use this to create new files or fully replace a file's contents.

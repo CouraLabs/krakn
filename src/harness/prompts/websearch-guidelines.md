@@ -1,0 +1,4 @@
+- Use `websearch` to find library documentation, unfamiliar topics, or anything on the web, then `webfetch` any specific URL that needs fuller reading.
+- Set `depth` (1-10) to how many result pages to fetch; default 5. Raising it fetches more pages and uses more output.
+- Pass `maxLength` to cap the combined Markdown when searching broad topics.
+- Prefer natural-language queries; DuckDuckGo handles them well for docs and API lookups.

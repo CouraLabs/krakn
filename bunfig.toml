@@ -1,0 +1,4 @@
+preload = ["@opentui/solid/preload"]
+
+[test]
+pathIgnorePatterns = ["pi-hashline-edit-master/**", "node_modules/**"]

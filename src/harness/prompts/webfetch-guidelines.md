@@ -1,0 +1,4 @@
+- Use `webfetch` to read any page's content as Markdown (Puppeteer + Turndown, so JS-heavy and SPA pages work).
+- Pass a full URL with scheme, e.g. `https://example.com/doc`.
+- Returned content excludes navigation, ads, scripts, and styles; only the body text survives.
+- Reduce the result with `maxLength` when you only need a portion of a large page.

@@ -1,0 +1,3 @@
+- Prefer the dedicated read/edit/grep/glob/write tools over bash for file inspection and modification; bash is for anything those tools cannot express (real commands, git, build steps, process control).
+- Set a timeout for commands that may hang; read the truncated-output notice and continue from the saved full output if a result is cut off.
+- Prefer short, single-purpose commands; chain with && only when later steps depend on earlier ones.
