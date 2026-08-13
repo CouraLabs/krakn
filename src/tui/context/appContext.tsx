@@ -1,6 +1,13 @@
-import { createContext, createMemo, type ParentComponent } from "solid-js";
+import { createContext, createEffect, createMemo, createSignal, type ParentComponent } from "solid-js";
 import { createStore } from "solid-js/store";
-import type { AppContextAction, AppContextSelect, ContextValue, AppState } from "./context-types";
+import { allThemes, resolveTheme, type Theme } from "../themes";
+import type { AppContextAction, AppContextSelect, ContextValue, AppState, TuiVariant } from "./context-types";
+
+const themes = allThemes()
+const defaultTheme = 'default'
+const defaultThemeVariant: TuiVariant = 'dark'
+const defaultJsonTheme = themes[defaultTheme]
+const defaultResolvedTheme = resolveTheme(defaultJsonTheme, defaultThemeVariant)
 
 export const AppContext = createContext<ContextValue<AppContextAction, AppContextSelect>>({
   action: {} as AppContextAction, select: {} as AppContextSelect
@@ -8,8 +15,9 @@ export const AppContext = createContext<ContextValue<AppContextAction, AppContex
 
 export const AppContextProvider: ParentComponent = (props) => {
   const [state, setState] = createStore<AppState>({
-    tui: { theme: 'default' }
+    tui: { theme: 'default', variant: 'dark' }
   })
+  const [theme, setTheme] = createSignal(defaultResolvedTheme)
 
   const action: AppContextAction = {
     setTui: (data: Partial<AppState['tui']>) => {
@@ -17,16 +25,30 @@ export const AppContextProvider: ParentComponent = (props) => {
         if(!data) return v
         return { ...v, data }
       })
-    } 
+    },
+    themeChange: (theme: string) => {
+      setState('tui', 'theme', theme)
+    },
+    variantChange: (variant: TuiVariant) => {
+      setState('tui', 'variant', variant)
+    }
   }
 
+  createEffect(() => {
+    const variant = state.tui.variant
+    const theme = state.tui.theme
+    setTheme(resolveTheme(themes[theme], variant))
+  })
+
   const select: AppContextSelect = {
-    settings: createMemo(() => state.settings),
     tui: createMemo(() => state.tui),
-    agent: createMemo(() => state.agent)
+    agent: createMemo(() => state.agent),
+    theme: theme
   }
 
   return (
-    <AppContext.Provider value={{ action, select }}>{props.children}</AppContext.Provider>
+    <AppContext.Provider value={{ action, select }}>
+      {props.children}
+    </AppContext.Provider>
   )
 }

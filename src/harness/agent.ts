@@ -42,7 +42,7 @@ import { createWebSearchTool } from "./tools/web/web-search"
 import type { KraknAgentEventType, SessionFile } from "./harness-types"
 import { app } from "../globals"
 
-class KraknAgent {
+export class KraknAgent {
   private env: NodeExecutionEnv
   private sessionId?: string
   private agent?: Agent
@@ -251,6 +251,21 @@ class KraknAgent {
     }
   }
 
+  /** List providers that offer an interactive OAuth login flow. */
+  oauthProviders(): { id: string, name: string }[] {
+    return this.models
+      .getProviders()
+      .filter((provider) => provider.auth.oauth)
+      .map((provider) => ({ id: provider.id, name: provider.name }))
+  }
+
+  /** Registered provider identities (id and display name). */
+  providers(): { id: string, name: string }[] {
+    return this.models
+      .getProviders()
+      .map((provider) => ({ id: provider.id, name: provider.name }))
+  }
+
   async prompt(input: string, images?: ImageContent[]) {
     if (!this.agent) throw new Error(`Agent not initilized`)
     if(this.agent.state.isStreaming) throw new Error(`Agent is processing`)
@@ -365,7 +380,6 @@ const createKraknAgent = async (cwd: string) => {
 }
 
 export { 
-  type KraknAgent,
   type KraknAgentEventType,
   createKraknAgent 
 }
