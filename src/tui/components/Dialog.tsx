@@ -1,7 +1,7 @@
 import { createEffect, createMemo } from "solid-js"
 import type { JSX } from "solid-js"
 import { Portal, useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
-import type { BoxRenderable } from "@opentui/core"
+import { RGBA, type BoxRenderable } from "@opentui/core"
 import { useTui } from "../hooks/useTui"
 import { Button } from "./Button"
 
@@ -74,6 +74,7 @@ export function Dialog(props: DialogProps) {
     const o = overlayBox
     if (!o) return
     const d = dims()
+    const overlay = RGBA.fromInts(0, 0, 0, 180)
     o.position = "absolute"
     o.left = 0
     o.top = 0
@@ -81,6 +82,7 @@ export function Dialog(props: DialogProps) {
     o.width = d.width
     o.height = d.height
     o.visible = props.open
+    o.backgroundColor = overlay
     o.onMouseDown = () => props.onClose()
   })
 
@@ -101,11 +103,12 @@ export function Dialog(props: DialogProps) {
           flexDirection="row"
           alignItems="center"
           justifyContent="space-between"
-          paddingX={1}
+          paddingX={2}
+          paddingY={1}
           height={1}
         >
           <text fg={theme().text}>{props.title ?? ""}</text>
-          <Button label="✕" onClick={props.onClose} />
+          <Button label="X" onClick={props.onClose} />
         </box>
         <box flexGrow={1} paddingX={1} paddingY={1}>
           {props.children}
