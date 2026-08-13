@@ -1,5 +1,6 @@
 import { createSignal, Show } from "solid-js"
 import { useTui } from "../hooks/useTui"
+import { icons } from "../shared/icons"
 
 export type ButtonProps = {
   label: string
@@ -16,15 +17,13 @@ export function Button(props: ButtonProps) {
   const [hovered, setHovered] = createSignal(false)
 
   return (
-    <box flexDirection="row">
+    <box flexDirection="row" gap={1}>
       <Show when={props.addWrappers}>
-        <text bg={hovered() ? theme().backgroundElement : undefined} fg={theme().textMuted}>
-          {props.label}
-        </text>
+        <text bg={hovered() ? theme().accent : theme().backgroundElement} fg={theme().textMuted}>❲</text>
       </Show>
       <text
         fg={hovered() ? theme().accent : theme().text}
-        bg={hovered() ? theme().backgroundElement : undefined}
+        bg={hovered() ? theme().accent : theme().backgroundElement}
         onMouseOver={() => setHovered(true)}
         onMouseOut={() => setHovered(false)}
         onMouseDown={() => props.onClick?.()}
@@ -32,9 +31,7 @@ export function Button(props: ButtonProps) {
         {props.label}
       </text>
       <Show when={props.addWrappers}>
-        <text bg={hovered() ? theme().backgroundElement : undefined} fg={theme().textMuted}>
-          {props.label}
-        </text>
+        <text bg={hovered() ? theme().accent : theme().backgroundElement} fg={theme().textMuted}>❳</text>
       </Show>
     </box>
   )

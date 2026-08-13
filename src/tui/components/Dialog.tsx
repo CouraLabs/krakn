@@ -101,17 +101,18 @@ export function Dialog(props: DialogProps) {
       >
         <box
           flexDirection="row"
-          alignItems="center"
+          alignItems="space-between"
           justifyContent="space-between"
-          paddingX={2}
-          paddingY={1}
-          height={1}
+          paddingX={2} paddingY={1}
         >
           <text fg={theme().text}>{props.title ?? ""}</text>
           <Button label="X" onClick={props.onClose} />
         </box>
-        <box flexGrow={1} paddingX={1} paddingY={1}>
+        <box flexGrow={1} paddingX={1} paddingY={1} backgroundColor={theme().backgroundElement}>
           {props.children}
+        </box>
+        <box paddingX={1} paddingY={1} alignItems="flex-end" backgroundColor={theme().backgroundPanel}>
+          <Button label=" cancel " onClick={props.onClose} />
         </box>
       </box>
     </Portal>

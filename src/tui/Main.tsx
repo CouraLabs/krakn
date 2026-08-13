@@ -61,7 +61,6 @@ export const Main = () => {
       >
         <box flexDirection="column" paddingX={1}>
           <text fg={theme().text}>The body comes from the Dialog children.</text>
-          <text fg={theme().textMuted}>Close with the ✕ button, Escape, or by clicking outside.</text>
         </box>
       </Dialog>
     </box>

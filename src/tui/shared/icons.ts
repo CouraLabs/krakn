@@ -28,6 +28,10 @@ export const icons = {
   chevronDown: '˅',
   chevronDoubleLeft: '«',
   chevronDoubleRight: '»',
+  chevronBoldRight: '❱',
+  chevronBoldLeft: '❰',
+  chevronHeavyRight: '❯',
+  chevronHeavyLeft: '❮'
 } as const;
 
 export type IconName = keyof typeof icons;

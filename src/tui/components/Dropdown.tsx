@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For } from "solid-js"
+import { createEffect, createMemo, createSignal, For, onMount } from "solid-js"
 import { Portal, useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
 import type { BoxRenderable } from "@opentui/core"
 import { useTui } from "../hooks/useTui"
@@ -72,7 +72,7 @@ export function computePlacement(geo: DropdownGeo): Placement {
   let top: number
   let left: number
   if (s === "bottom") {
-    top = ty + th + gap
+    top = ty + th
     left = tx
   } else if (s === "top") {
     top = ty - gap - mh
@@ -105,12 +105,16 @@ export function Dropdown<T>(props: DropdownProps<T>) {
   const { theme } = useTui()
   const dims = useTerminalDimensions()
   const [open, setOpen] = createSignal(false)
-  const [hovered, setHovered] = createSignal(-1)
+  const [hovered, setHovered] = createSignal('')
   const [scrollOffset, setScrollOffset] = createSignal(0)
   const [placement, setPlacement] = createSignal<Placement>()
   const renderer = useRenderer()
   let triggerRef: BoxRenderable | undefined
   let overlayBox: BoxRenderable | undefined
+
+  onMount(() => {
+    renderer.console.show()
+  })
 
   const selected = createMemo(() => props.options.find((o) => o.value === props.value))
   const selectedLabel = () => selected()?.label ?? props.placeholder ?? "Select…"
@@ -124,7 +128,7 @@ export function Dropdown<T>(props: DropdownProps<T>) {
     const [sel] = rest.splice(idx, 1)
     return [sel, ...rest]
   })
-  const maxVisible = () => Math.max(1, props.maxVisible ?? 5)
+  const maxVisible = () => Math.max(1, props.maxVisible ?? 10)
   const visibleRows = createMemo(() => Math.min(orderedOptions().length, maxVisible()))
   const canScroll = createMemo(() => orderedOptions().length > visibleRows())
   // Longest option label, measured in display cells.
@@ -143,7 +147,7 @@ export function Dropdown<T>(props: DropdownProps<T>) {
 
   const openMenu = () => {
     const t = dims()
-    setHovered(-1)
+    setHovered('')
     setScrollOffset(0)
     setPlacement(computePlacement({
       trigger: {
@@ -176,18 +180,6 @@ export function Dropdown<T>(props: DropdownProps<T>) {
     const dir = scroll?.direction === "down" ? 1 : scroll?.direction === "up" ? -1 : 0
     if (dir !== 0) scrollBy(dir * Math.max(1, scroll?.delta ?? 1))
   }
-
-  // Keep the hovered option visible when it moves outside the scroll window.
-  const onHover = (index: number) => {
-    setHovered(index)
-    const visible = visibleRows()
-    if (index < scrollOffset()) setScrollOffset(index)
-    else if (index >= scrollOffset() + visible) setScrollOffset(index - visible + 1)
-  }
-
-  const windowedOptions = createMemo(() =>
-    orderedOptions().slice(scrollOffset(), scrollOffset() + visibleRows()),
-  )
 
   // Escape closes the menu while it is open.
   useKeyboard((key) => {
@@ -240,38 +232,41 @@ export function Dropdown<T>(props: DropdownProps<T>) {
           position="absolute"
           top={placement()?.top ?? 0}
           left={placement()?.left ?? 0}
-          width={menuWidth()}
-          height={menuHeight()}
+          width={menuWidth() + 6}
+          height={menuHeight() + 2}
           zIndex={100}
+          paddingX={2}
+          paddingY={1}
           backgroundColor={theme().backgroundMenu}
           flexDirection="column"
           visible={open() && !!placement()}
-          onMouseScroll={onMenuScroll}
         >
-          <For each={windowedOptions()}>
-            {(option, i) => {
-              const absIndex = i() + scrollOffset()
-              const isHovered = hovered() === absIndex
-              const isSelected = selected() === option
-              return (
-                <box
-                  height={1}
-                  paddingX={1}
-                  backgroundColor={isHovered ? theme().border : undefined}
-                  onMouseOver={() => onHover(absIndex)}
-                  onMouseOut={() => setHovered(-1)}
-                  onMouseDown={() => {
-                    props.onChange?.(option.value, option)
-                    close()
-                  }}
-                >
-                  <text fg={isSelected ? theme().accent : isHovered ? theme().text : theme().textMuted}>
-                    {option.label}
-                  </text>
-                </box>
-              )
-            }}
-          </For>
+          <scrollbox>
+            <For each={orderedOptions()}>
+              {(option, i) => {
+                const absIndex = `item-${i()}`
+                const isSelected = selected() === option
+                return (
+                  <box
+                    id={`item-${i()}`}
+                    height={1}
+                    paddingX={1}
+                    backgroundColor={hovered() === absIndex ? theme().border : undefined}
+                    onMouseOver={() => setHovered(`item-${i()}`)}
+                    onMouseDown={() => {
+                      setHovered('')
+                      props.onChange?.(option.value, option)
+                      close()
+                    }}
+                  >
+                    <text fg={isSelected ? theme().accent : hovered() === absIndex ? theme().text : theme().textMuted}>
+                      {option.label}
+                    </text>
+                  </box>
+                )
+              }}
+            </For>
+          </scrollbox>
         </box>
       </Portal>
     </>

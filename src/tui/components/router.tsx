@@ -118,12 +118,6 @@ export const Router = () => {
       </box>
       <box border borderColor={theme().accent} flexDirection="column" paddingX={1} paddingY={1}>
         <spinner frames={['▫▫▫', '▪▫▫', '■▪▫', '▪■▪', '▫▪■', '▫▫▪']} interval={200} color={theme().accent} />
-        {SPINNERS.map((name) => (
-          <box flexDirection="column" alignItems="center" width={24} paddingY={1}>
-            <spinner name={name as SpinnerName} color={theme().accent} />
-            <text fg={theme().textMuted}>{name}</text>
-          </box>
-        ))}
       </box>
     </box>
   )
