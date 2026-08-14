@@ -1,13 +1,13 @@
 import { Show } from "solid-js";
-import { useAppStore } from "../../../../hooks/app-provider";
 import { extractText } from "./content";
 import { bashWarnings } from "./warnings";
 import { CodeBlock } from "./CodeBlock";
 import { ResultFrame } from "./ResultFrame";
 import type { ToolResultProps } from "./types";
+import { useTui } from "../../../hooks/useTui";
 
 export const BashResult = (props: ToolResultProps) => {
-  const { theme } = useAppStore();
+  const { theme } = useTui();
   const text = extractText(props.result?.content ?? []);
   const warnings = bashWarnings(props.result?.details);
   return (

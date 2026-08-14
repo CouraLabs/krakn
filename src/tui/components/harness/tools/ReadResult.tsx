@@ -1,14 +1,14 @@
 import { Show } from "solid-js";
-import { useAppStore } from "../../../../hooks/app-provider";
 import { extractText, isImagePart } from "./content";
 import { argFiletype } from "./filetype";
 import { bashWarnings } from "./warnings"; // same shape: { truncation? }
 import { CodeBlock } from "./CodeBlock";
 import { ResultFrame } from "./ResultFrame";
 import type { ToolResultProps } from "./types";
+import { useTui } from "../../../hooks/useTui";
 
 export const ReadResult = (props: ToolResultProps) => {
-  const { theme } = useAppStore();
+  const { theme } = useTui();
   const content = props.result?.content ?? [];
   const text = extractText(content);
   const images = content.filter(isImagePart);

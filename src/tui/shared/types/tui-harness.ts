@@ -13,7 +13,7 @@ export type TuiUserAgentMessage = {
 export type TuiAssistantAgentMessage = { 
   role: 'assistant', 
   id: string, 
-  type: 'thinking' | 'assistant' | 'tool', 
+  type: 'thinking' | 'assistant', 
   content: string, 
   images?: [],
   status: TuiMessageStatus,

@@ -1,5 +1,4 @@
 import type { JSX } from "solid-js";
-import { useAppStore } from "../../../../hooks/app-provider";
 import { extractText } from "./content";
 import { argFiletype } from "./filetype";
 import { grepWarnings, findWarnings, lsWarnings } from "./warnings";
@@ -12,6 +11,7 @@ import { WriteResult } from "./WriteResult";
 import { OutputResult } from "./OutputResult";
 import { MarkdownResult } from "./MarkdownResult";
 import type { ToolResultProps } from "./types";
+import { useTui } from "../../../hooks/useTui";
 
 /**
  * Render the expanded result body for one tool call.
@@ -24,7 +24,7 @@ import type { ToolResultProps } from "./types";
  * rest) and falls back to markdown for unknown tools.
  */
 export const renderToolResult = (props: ToolResultProps): JSX.Element => {
-  const { theme } = useAppStore();
+  const { theme } = useTui();
   const text = extractText(props.result?.content ?? []);
 
   // Still running and nothing streamed yet.

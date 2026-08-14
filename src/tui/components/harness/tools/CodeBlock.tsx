@@ -1,7 +1,6 @@
 import type { JSX } from "solid-js";
 import type { RGBA } from "@opentui/core";
-import { useAppStore } from "../../../../hooks/app-provider";
-import { treeSitterClient } from "../../../../libs/treesitter";
+import { useTui } from "../../../hooks/useTui";
 
 type CodeBlockProps = {
   content: string;
@@ -17,12 +16,11 @@ type CodeBlockProps = {
  * running tool streams.
  */
 export const CodeBlock = (props: CodeBlockProps): JSX.Element => {
-  const { subtleSyntax } = useAppStore();
+  const { syntax } = useTui();
   const running = props.status === "running";
   return (
     <code
-      syntaxStyle={subtleSyntax()}
-      treeSitterClient={treeSitterClient}
+      syntaxStyle={syntax().muted}
       streaming={running}
       conceal={!running}
       filetype={props.filetype}

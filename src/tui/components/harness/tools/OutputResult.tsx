@@ -1,9 +1,9 @@
 import { Show } from "solid-js";
-import { useAppStore } from "../../../../hooks/app-provider";
 import { extractText } from "./content";
 import { CodeBlock } from "./CodeBlock";
 import { ResultFrame } from "./ResultFrame";
 import type { ToolResultProps } from "./types";
+import { useTui } from "../../../hooks/useTui";
 
 type OutputResultProps = ToolResultProps & {
   /** Exact text that signals "nothing found" (e.g. "No matches found"). */
@@ -18,7 +18,7 @@ type OutputResultProps = ToolResultProps & {
  * muted one-liner instead of a bordered block.
  */
 export const OutputResult = (props: OutputResultProps) => {
-  const { theme } = useAppStore();
+  const { theme } = useTui();
   const text = extractText(props.result?.content ?? []);
   if (text.trim() === props.emptyText) {
     return <text fg={theme().textMuted}>{props.emptyText}</text>;

@@ -1,12 +1,12 @@
-import { useAppStore } from "../../../../hooks/app-provider";
 import { extractText } from "./content";
 import { CodeBlock } from "./CodeBlock";
 import { ResultFrame } from "./ResultFrame";
 import type { ToolResultProps } from "./types";
+import { useTui } from "../../../hooks/useTui";
 
 /** Fallback for tools without a dedicated renderer: markdown-formatted text. */
 export const MarkdownResult = (props: ToolResultProps) => {
-  const { theme } = useAppStore();
+  const { theme } = useTui();
   const text = extractText(props.result?.content ?? []);
   return (
     <ResultFrame borderColor={theme().borderSubtle}>

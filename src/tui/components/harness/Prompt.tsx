@@ -1,19 +1,9 @@
 import { createEffect, createMemo, createSignal, Show, type Component } from "solid-js"
-import { useAgentStore } from "../../../hooks/agent-provider";
-import { useAppStore } from "../../../hooks/app-provider";
 import { useKeyboard } from "@opentui/solid";
-import { BusyLine } from "./BusyLine";
-import { sessionStats } from "../../../libs/usageMapper";
 import type { TextareaRenderable } from "@opentui/core";
-import { icons } from "../../icons";
-import {
-  actionContent,
-  findCommand,
-  openActionBox,
-  closeActionBox,
-  shortcutKeyToCommand,
-  type CommandContext,
-} from "../../../libs/commands";
+import { useTui } from "../../hooks/useTui";
+import { useHarness } from "../../hooks/useHarness";
+import { icons } from "../../shared/icons";
 
 type PromptRole = "prompt" | "command" | "bash";
 
@@ -25,44 +15,19 @@ const roleOf = (value: string): PromptRole => {
 };
 
 export const Prompt: Component<{}> = () => {
-  const { state: agentState, actions } = useAgentStore();
-  const { theme } = useAppStore();
+  const { abort, prompt, working } = useHarness();
+  const { theme } = useTui();
   let textareaRef: TextareaRenderable | undefined;
 
   const [role, setRole] = createSignal<PromptRole>("prompt");
 
-  const commandCtx: CommandContext = {
-    openActionBox,
-    closeActionBox,
-    exit: () => actions.exit(),
-  };
-
-  // When the ActionBox closes, return focus to the composer. The theme picker
-  // takes focus while the dialog is open, so it must be handed back on close.
   createEffect(() => {
-    if (!actionContent()) {
-      queueMicrotask(() => textareaRef?.focus());
-    }
+    queueMicrotask(() => textareaRef?.focus());
   });
 
   useKeyboard((key) => {
-    // Keyboard shortcuts that execute commands (e.g. ctrl+t -> /themes).
-    const shortcutCommand = shortcutKeyToCommand(key);
-    if (shortcutCommand) {
-      key.preventDefault();
-      shortcutCommand.run(commandCtx);
-      return;
-    }
-
     if (key.name === "escape") {
-      // While the ActionBox is open, escape only closes it — it must never
-      // abort an in-flight LLM execution.
-      if (actionContent()) {
-        key.preventDefault();
-        closeActionBox();
-        return;
-      }
-      void actions.abort();
+      void abort();
     }
   });
 
@@ -77,32 +42,19 @@ export const Prompt: Component<{}> = () => {
 
     switch (role()) {
       case "command": {
-        const name = (trimmed.slice(1).split(/\s+/)[0] ?? "").toLowerCase();
-        const command = findCommand(name);
-        if (command) {
-          command.run(commandCtx);
-          textareaRef?.clear();
-          textareaRef?.focus();
-          setRole("prompt");
-          return;
-        }
-        actions.notice(`Unknown command: /${name}`);
         break;
       }
       case "bash": {
-        void actions.bash(trimmed.slice(1));
         break;
       }
       default:
-        void actions.prompt(value);
+        void prompt(value);
     }
 
     textareaRef?.clear();
     textareaRef?.focus();
     setRole("prompt");
   };
-
-  const statusLine = createMemo(() => sessionStats(agentState().stats))
 
   const title = () => role() === "command" ? " Command " : role() === "bash" ? " Bash " : " Prompt ";
   const titleColor = () => role() === "command"
@@ -114,8 +66,8 @@ export const Prompt: Component<{}> = () => {
       id="center"
       flexDirection="column"
     >
-      <Show when={agentState().busy}>
-        <BusyLine />
+      <Show when={working()}>
+        <spinner name="dots4" /><text>Thinking...</text>
       </Show>
       <box
         id="center-composer"
@@ -151,10 +103,10 @@ export const Prompt: Component<{}> = () => {
           onSubmit={handleSubmit}
         />
       </box>
-      <text position="absolute" top={1} fg={titleColor()}>{icons.chevronbigRight}</text>
-      <Show when={!!agentState()}>
+      <text position="absolute" top={1} fg={titleColor()}>{icons.chevronBoldRight}</text>
+      <Show when={true}>
         <box flexDirection="row" gap={1}>
-          <text fg={theme().textMuted}>{statusLine()}</text>
+          <text fg={theme().textMuted}>Model - Input - Output - Cache - Cost</text>
         </box>
       </Show>
     </box>

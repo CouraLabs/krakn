@@ -5,7 +5,11 @@ export const useHarness = () => {
   const harnessCtx = useContext(HarnessContext)
 
   return {
+    // actions
+    abort: () => {},
+    prompt: (input: string) => {},
     // Selectors
-    messages: harnessCtx.select!.messages
+    messages: harnessCtx.select!.messages,
+    working: () => true
   }
 }

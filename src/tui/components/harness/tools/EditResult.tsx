@@ -1,13 +1,12 @@
-import { useAppStore } from "../../../../hooks/app-provider";
-import { treeSitterClient } from "../../../../libs/treesitter";
 import { extractText } from "./content";
 import { argFiletype } from "./filetype";
 import { CodeBlock } from "./CodeBlock";
 import type { ToolResultProps } from "./types";
 import { ResultFrame } from "./ResultFrame";
+import { useTui } from "../../../hooks/useTui";
 
 export const EditResult = (props: ToolResultProps) => {
-  const { theme, subtleSyntax } = useAppStore();
+  const { theme, syntax } = useTui();
   const text = extractText(props.result?.content ?? []);
   // details: { diff, patch, firstChangedLine? } (edit.d.ts:18-25). The Diff
   // renderable parses unified patches (`@@` headers), so feed it
@@ -19,8 +18,7 @@ export const EditResult = (props: ToolResultProps) => {
       <ResultFrame borderColor={theme().borderSubtle}>
         <diff
           diff={patch}
-          syntaxStyle={subtleSyntax()}
-          treeSitterClient={treeSitterClient}
+          syntaxStyle={syntax().muted}
           filetype={filetype}
           conceal={props.status !== "running"}
         />

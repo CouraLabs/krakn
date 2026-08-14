@@ -81,8 +81,10 @@ export const HarnessContextProvider: ParentComponent = (props) => {
     })
 
     kraknAgent.on('tool_execution_end', (e) => {
-      // on error the agent loop returns `{ content:[text], details:{}, isError:true }`,
-      // so carry the message in `out` and flag status instead of the empty details
+      // On success keep the full AgentToolResult (`{ content, details }`) so
+      // ToolView can render text/diffs. On error the agent loop returns
+      // `{ content:[text], details:{}, isError:true }`, so carry the message
+      // in `out` and flag status instead of the empty details.
       const errorText = (e.result?.content as Array<{ type: string; text?: string }> | undefined)
         ?.filter((c) => c.type === 'text')
         .map((c) => c.text ?? '')
@@ -90,7 +92,7 @@ export const HarnessContextProvider: ParentComponent = (props) => {
       pushMessage({
         role: 'tool', id: e.toolCallId, name: e.toolName,
         status: e.isError ? 'error' : 'done',
-        info: { name: e.toolName, out: e.isError ? { error: errorText } : e.result.details } as TuiToolCallAgentMessage['info'],
+        info: { name: e.toolName, out: e.isError ? { error: errorText } : e.result } as TuiToolCallAgentMessage['info'],
         when: Date.now()
       })
     })
