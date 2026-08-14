@@ -185,14 +185,29 @@ function isLegacyWslBashPath(path: string): boolean {
 	return /^[a-z]:\\windows\\(?:system32|sysnative)\\bash\.exe$/.test(normalized);
 }
 
-function getBashShellConfig(shell: string): ShellConfig {
-	return isLegacyWslBashPath(shell) ? { shell, args: ["-s"], commandTransport: "stdin" } : { shell, args: ["-c"] };
+/**
+ * Shell invocation config for a shell executable, chosen by its basename:
+ * PowerShell gets `-NoProfile -Command`, cmd gets `/c`, everything else
+ * (bash, zsh, sh, dash, ksh, fish, ...) accepts `-c <command>`.
+ */
+function shellConfigFor(shell: string): ShellConfig {
+	if (isLegacyWslBashPath(shell)) return { shell, args: ["-s"], commandTransport: "stdin" };
+	const name = basename(shell.replace(/\\/g, "/")).toLowerCase().replace(/\.exe$/, "");
+	switch (name) {
+		case "pwsh":
+		case "powershell":
+			return { shell, args: ["-NoProfile", "-Command"] };
+		case "cmd":
+			return { shell, args: ["/c"] };
+		default:
+			return { shell, args: ["-c"] };
+	}
 }
 
 async function getShellConfig(customShellPath?: string): Promise<Result<ShellConfig, ExecutionError>> {
 	if (customShellPath) {
 		if (await pathExists(customShellPath)) {
-			return ok(getBashShellConfig(customShellPath));
+			return ok(shellConfigFor(customShellPath));
 		}
 		return err(new ExecutionError("shell_unavailable", `Custom shell path not found: ${customShellPath}`));
 	}
@@ -204,12 +219,12 @@ async function getShellConfig(customShellPath?: string): Promise<Result<ShellCon
 		if (programFilesX86) candidates.push(`${programFilesX86}\\Git\\bin\\bash.exe`);
 		for (const candidate of candidates) {
 			if (await pathExists(candidate)) {
-				return ok(getBashShellConfig(candidate));
+				return ok(shellConfigFor(candidate));
 			}
 		}
 		const bashOnPath = await findBashOnPath();
 		if (bashOnPath) {
-			return ok(getBashShellConfig(bashOnPath));
+			return ok(shellConfigFor(bashOnPath));
 		}
 		return err(
 			new ExecutionError(
@@ -224,11 +239,11 @@ async function getShellConfig(customShellPath?: string): Promise<Result<ShellCon
 	}
 
 	if (await pathExists("/bin/bash")) {
-		return ok(getBashShellConfig("/bin/bash"));
+		return ok(shellConfigFor("/bin/bash"));
 	}
 	const bashOnPath = await findBashOnPath();
 	if (bashOnPath) {
-		return ok(getBashShellConfig(bashOnPath));
+		return ok(shellConfigFor(bashOnPath));
 	}
 	return ok({ shell: "sh", args: ["-c"] });
 }

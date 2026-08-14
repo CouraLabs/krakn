@@ -16,8 +16,7 @@ import {
   type Credential,
   type ImageContent,
   type Model,
-  type MutableModels,
-  type Usage,
+  type MutableModels
 } from "@earendil-works/pi-ai"
 
 import process from "node:process"
@@ -37,7 +36,7 @@ import { createGrepTool } from "./tools/grep/grep"
 import { createReadTool } from "./tools/read/read"
 import { createWebFetchTool } from "./tools/web/web-fetch"
 import { createWebSearchTool } from "./tools/web/web-search"
-import type { KraknAgentEventMap, KraknAgentEventType, QueuedPrompt, SessionFile, UsageTotals, UsageUpdateEvent } from "./harness-types"
+import type { KraknAgentEventMap, KraknAgentEventType, QueuedPrompt, SessionFile } from "./harness-types"
 import { app } from "../globals"
 import { UsageLedger } from "./usage-ledger"
 
@@ -66,7 +65,7 @@ export class KraknAgent {
     this.env = new NodeExecutionEnv({
       cwd: cwd, 
       shellEnv: this.safeProcessEnv(), 
-      shellPath: cwd
+      shellPath: app.shell.path
     })
     const result = builtinModels({ credentials: new FileCredentialStore() })
     loadCustomProviders(result)
@@ -447,7 +446,13 @@ export class KraknAgent {
   private buildSystemPrompt(toolNames: string[]) {
     const template = loadPrompt(new URL("./prompts/system.md", import.meta.url))
     const toolsGuide = buildToolGuidelines(toolNames)
-    return template.replace('{{tools_guidelines}}', toolsGuide)
+    const shellLabel = app.shell.kind === app.shell.name ? app.shell.kind : `${app.shell.kind} (${app.shell.name})`
+    // Function replacements so `$` in paths never triggers substitution patterns.
+    return template
+      .replace('{{tools_guidelines}}', () => toolsGuide)
+      .replace('{{workspace}}', () => app.cwd)
+      .replace('{{os}}', () => `${app.os.name} ${app.os.release} (${app.os.arch})`)
+      .replace('{{shell}}', () => shellLabel)
   }
 
   public getContext(): { 
