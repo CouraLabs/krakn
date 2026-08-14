@@ -2,8 +2,8 @@ import { Command } from "commander";
 import { createInterface } from "node:readline";
 import process from "node:process";
 import { render } from "@opentui/solid";
-import { App } from "./tui/app";
 import { createKraknAgent, KraknAgent } from "./harness/agent";
+import { App } from "./tui/App";
 
 interface LoginOption {
   login?: string | boolean
@@ -73,7 +73,12 @@ program.action(async () => {
   }
 
   // No flags: launch the TUI.
-  render(App)
+  render(App, {
+    useThread: true,
+    openConsoleOnError: true,
+    exitOnCtrlC: true,
+    onDestroy: () => process.exit(0)
+  })
 })
 
 program.parse()

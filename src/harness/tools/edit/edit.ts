@@ -156,6 +156,8 @@ export const hashlineEditToolSchema = Type.Object(
 	{ additionalProperties: false },
 );
 
+export type EditToolInput = Static<typeof hashlineEditToolSchema>
+
 // Schema published to the model when replaceText=false: replace_text op is
 // absent so the model never sees it as a valid option.
 const hashlineEditToolSchemaNoReplaceText = Type.Object(

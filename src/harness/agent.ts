@@ -79,11 +79,23 @@ export class KraknAgent {
     return `${this.normalizeCwd()}-${ulid()}`
   }
 
-  async newSession(sessionId?: string, model?: Model<Api>) {
+  async newSession(sessionId?: string, model?: string) {
     if(this.sessionId) throw new Error(`Session is already created`)
     this.sessionId = sessionId ?? this.genSessionId()
 
-    const selectedModel = model ?? this.models.getModel("opencode-go", "deepseek-v4-flash")
+    let provider = "opencode-go"
+    let modelProvider = "deepseek-v4-flash"
+
+    if(model) {
+      const [ p, m ] = model.split('/');
+
+      if(p && m) {
+        provider = p
+        modelProvider = m
+      }
+    }
+
+    const selectedModel = this.models.getModel(provider, modelProvider)
     if (!selectedModel) throw new Error("model not loaded")
 
     const tools = [
@@ -124,17 +136,17 @@ export class KraknAgent {
         messages: restored.messages,
       },
       streamFn: this.models.streamSimple.bind(this.models),
-      toolExecution: 'sequential',
+      toolExecution: 'parallel',
     })
 
     this.unsubscribe = this.agent.subscribe((event: Extract<AgentEvent, { type: KraknAgentEventType }>) => {
-      this.eventHooks.get(event.type)?.(event);
-      // Persist the session once the run has fully finished.
       if (event.type === 'agent_end') {
         this.saveSession().catch((err) => {
           console.error('Failed to save session:', err)
         })
       }
+
+      this.eventHooks.get(event.type)?.(event);
     })
   }
 
@@ -164,7 +176,7 @@ export class KraknAgent {
         thinkingLevel: this.agent.state.thinkingLevel,
       },
       messages: context.messages,
-      tokens: context.tokens.tokens,
+      estimateTokens: context.estimateTokens.tokens,
       savedAt: new Date().toISOString(),
     }
 
@@ -348,11 +360,11 @@ export class KraknAgent {
     return template.replace('{{tools_guidelines}}', toolsGuide)
   }
 
-  private getContext(): { 
+  public getContext(): { 
     systemPrompt: string, 
     messages: AgentMessage[],
     tools: AgentTool[],
-    tokens: {
+    estimateTokens: {
       /** Estimated total context tokens. */
       tokens: number;
       /** Tokens reported by the most recent assistant usage block. */
@@ -368,14 +380,14 @@ export class KraknAgent {
 
     return {
       systemPrompt: state.systemPrompt,
-      tokens: estimateContextTokens(state.messages),
+      estimateTokens: estimateContextTokens(state.messages),
       tools: state.tools,
       messages: state.messages,
     }
   }
 }
 
-const createKraknAgent = async (cwd: string) => {
+const createKraknAgent = (cwd: string) => {
   return new KraknAgent(cwd)
 }
 

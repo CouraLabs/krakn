@@ -1,8 +1,7 @@
 import { createEffect, createMemo, createSignal, For, onMount } from "solid-js"
 import { Portal, useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
-import type { BoxRenderable } from "@opentui/core"
+import { TextAttributes, type BoxRenderable } from "@opentui/core"
 import { useTui } from "../hooks/useTui"
-import type { Theme } from "../themes"
 
 export type DropdownSide = "bottom" | "top" | "right" | "left"
 
@@ -14,6 +13,7 @@ export type DropdownOption<T> = {
 export type DropdownProps<T> = {
   options: DropdownOption<T>[]
   value?: T
+  key?: string
   onChange?: (value: T, option: DropdownOption<T>) => void
   /** Preferred side the popup opens toward. Flipped automatically when there is no room. */
   side?: DropdownSide
@@ -106,14 +106,12 @@ export function Dropdown<T>(props: DropdownProps<T>) {
   const dims = useTerminalDimensions()
   const [open, setOpen] = createSignal(false)
   const [hovered, setHovered] = createSignal('')
-  const [scrollOffset, setScrollOffset] = createSignal(0)
   const [placement, setPlacement] = createSignal<Placement>()
   const renderer = useRenderer()
   let triggerRef: BoxRenderable | undefined
   let overlayBox: BoxRenderable | undefined
 
   onMount(() => {
-    renderer.console.show()
   })
 
   const selected = createMemo(() => props.options.find((o) => o.value === props.value))
@@ -130,7 +128,6 @@ export function Dropdown<T>(props: DropdownProps<T>) {
   })
   const maxVisible = () => Math.max(1, props.maxVisible ?? 10)
   const visibleRows = createMemo(() => Math.min(orderedOptions().length, maxVisible()))
-  const canScroll = createMemo(() => orderedOptions().length > visibleRows())
   // Longest option label, measured in display cells.
   const longestLabel = createMemo(() =>
     orderedOptions().reduce((m, o) => {
@@ -148,7 +145,6 @@ export function Dropdown<T>(props: DropdownProps<T>) {
   const openMenu = () => {
     const t = dims()
     setHovered('')
-    setScrollOffset(0)
     setPlacement(computePlacement({
       trigger: {
         x: triggerRef?.screenX ?? 0,
@@ -165,21 +161,6 @@ export function Dropdown<T>(props: DropdownProps<T>) {
   }
 
   const toggle = () => (open() ? close() : openMenu())
-
-  const scrollBy = (delta: number) => {
-    const max = Math.max(0, orderedOptions().length - visibleRows())
-    setScrollOffset((v) => Math.min(max, Math.max(0, v + delta)))
-  }
-
-  // Narrow the opentui MouseEvent to its scroll info (library boundary).
-  const onMenuScroll = (e: unknown) => {
-    if (!canScroll()) return
-    const scroll = e && typeof e === "object" && "scroll" in e
-      ? (e as { scroll?: { direction?: string, delta?: number } }).scroll
-      : undefined
-    const dir = scroll?.direction === "down" ? 1 : scroll?.direction === "up" ? -1 : 0
-    if (dir !== 0) scrollBy(dir * Math.max(1, scroll?.delta ?? 1))
-  }
 
   // Escape closes the menu while it is open.
   useKeyboard((key) => {
@@ -219,9 +200,13 @@ export function Dropdown<T>(props: DropdownProps<T>) {
             onMouseDown={toggle}
             height={1}
             paddingX={1}
+            flexDirection="row"
+            gap={1}
             backgroundColor={theme().backgroundElement}
           >
-            <text fg={theme().text}>{selectedLabel()} {open() ? "▴" : "▾"}</text>
+            <text fg={theme().text}>{props.key}:</text>
+            <text fg={theme().text} attributes={TextAttributes.DIM}>{selectedLabel()}</text>
+            <text fg={theme().text} attributes={TextAttributes.DIM}>{open() ? "▴" : "▾"}</text>
           </box>
         )}
       {/* Always mounted via portal; the container is configured as a full-screen
