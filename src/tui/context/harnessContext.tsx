@@ -1,10 +1,11 @@
-import { batch, createContext, createMemo, onCleanup, onMount, type ParentComponent } from "solid-js";
-import type { HarnessContextAction, HarnessContextSelect, HarnessState } from "./harness-context-types";
+import { createContext, createMemo, onCleanup, onMount, type ParentComponent } from "solid-js";
+import type { HarnessContextAction, HarnessContextSelect, HarnessState, ModelInfo } from "./harness-context-types";
 import { createStore } from "solid-js/store";
 import { createKraknAgent } from "../../harness/agent";
 import type { TuiAgentMessage, TuiMessageStatus, TuiToolCallAgentMessage } from "../shared/types/tui-harness";
+import { getSupportedThinkingLevels, type Api, type Model, type ModelThinkingLevel } from "@earendil-works/pi-ai";
+import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { ulid } from "ulid";
-import type { Usage } from "@earendil-works/pi-ai";
 
 /** Map an assistant message's final stopReason onto the UI lifecycle status. */
 const statusFromStopReason = (reason: string): TuiMessageStatus => {
@@ -16,13 +17,25 @@ const statusFromStopReason = (reason: string): TuiMessageStatus => {
   }
 }
 
+/** Project a provider model onto the TUI-facing `ModelInfo` shape. */
+const toModelInfo = (model: Model<Api>): ModelInfo => ({
+  provider: model.provider,
+  modelId: model.id,
+  modelName: model.name ?? model.provider,
+  contextSize: model.contextWindow,
+  thinkingLevels: getSupportedThinkingLevels(model),
+  supports: model.input,
+  costs: model.cost,
+})
+
 export const HarnessContext = createContext<{ action: HarnessContextAction, select: HarnessContextSelect }>({
   action: {} as HarnessContextAction, select: {} as HarnessContextSelect
 })
 
 export const HarnessContextProvider: ParentComponent = (props) => {
   const [state, setState] = createStore<HarnessState>({
-    model: 'opencode/big-pickle', messages: [], tokens: { in: 0, out: 0, cr: 0, cw: 0, total: 0 }, cost: { in: 0, out: 0, cr: 0, cw: 0, total: 0 }
+    messages: [], tokens: { in: 0, out: 0, cr: 0, cw: 0, total: 0 }, cost: { in: 0, out: 0, cr: 0, cw: 0, total: 0 },
+    working: false, steering: [], queued: [], currentModel: undefined
   })
 
   const kraknAgent = createKraknAgent(process.cwd())
@@ -30,15 +43,26 @@ export const HarnessContextProvider: ParentComponent = (props) => {
   onMount(() => {
     let textId = ''
     let thinkingId = ''
+
+    kraknAgent.on('agent_start', () => setState('working', true))
+    kraknAgent.on('agent_end', () => setState('working', false))
+    kraknAgent.on('queue_update', (e) => {
+      setState('steering', e.steering)
+      setState('queued', e.queued)
+    })
     
     kraknAgent.on('message_end', (e) => {
       if(e.message.role === "assistant") {
-        updateUsage(e.message.usage)
         const status = statusFromStopReason(e.message.stopReason)
         setState('messages', (msgs) => msgs.map((m) =>
           m.role === 'assistant' && m.status === 'processing' ? { ...m, status } : m
         ))
       }
+    })
+
+    kraknAgent.on('usage_update', (e) => {
+      setState('tokens', e.tokens)
+      setState('cost', e.cost)
     })
 
     kraknAgent.on('message_update', (e) => {
@@ -126,37 +150,59 @@ export const HarnessContextProvider: ParentComponent = (props) => {
     })
   }
 
-  const updateUsage = (usage: Usage) => {
-    batch(() => {
-      setState('tokens', (curr) => {
-        return {
-          in: curr.in + usage.input,
-          out: curr.out + usage.output,
-          cr: curr.cr + usage.cacheRead,
-          cw: curr.cw + usage.cacheWrite,
-          total: curr.total + usage.totalTokens
-        }
-      })
-
-      setState('cost', (curr) => {
-        return {
-          in: curr.in + usage.cost.input,
-          out: curr.out + usage.cost.output,
-          cr: curr.cr + usage.cost.cacheRead,
-          cw: curr.cw + usage.cost.cacheWrite,
-          total: curr.total + usage.cost.total
-        }
-      })
-    })
-  }
-
   const action: HarnessContextAction = {
-    createSession: (sessionId?: string) => kraknAgent.newSession(sessionId, state.model),
-    prompt: (text: string) => kraknAgent.prompt(text)
+    createSession: async (sessionId?: string) => {
+      await kraknAgent.newSession(sessionId)
+      const model = kraknAgent.currentModel()
+      setState('currentModel', model ? toModelInfo(model) : undefined)
+    },
+    abort: () => kraknAgent.abort(),
+    prompt: async (text: string) => {
+      if (!kraknAgent.currentModel()) {
+        console.warn('[harness] No model selected; prompt ignored')
+        return
+      }
+      await kraknAgent.prompt(text)
+    },
+    queue: (text: string) => {
+      if (!kraknAgent.currentModel()) {
+        console.warn('[harness] No model selected; prompt not queued')
+        return
+      }
+      kraknAgent.queue(text)
+    },
+    steer: (text: string) => {
+      if (!kraknAgent.currentModel()) {
+        console.warn('[harness] No model selected; prompt not steered')
+        return
+      }
+      kraknAgent.steer(text)
+    },
+    clearQueue: () => kraknAgent.clearQueue(),
+    clearSteering: () => kraknAgent.clearSteering(),
+    switchModel: async (provider: string, modelId: string) => {
+      await kraknAgent.switchModel(provider, modelId)
+      const model = kraknAgent.currentModel()
+      setState('currentModel', model ? toModelInfo(model) : undefined)
+    },
+    switchThinking: (level: ThinkingLevel) => kraknAgent.switchThinkingLevel(level)
   }
 
   const select: HarnessContextSelect = {
-    messages: createMemo(() => state.messages)
+    messages: createMemo(() => state.messages),
+    availableModels: createMemo(() => kraknAgent.availableModels().map(toModelInfo)),
+    availableThinkingLevels: createMemo(() => {
+      const levels = new Set<ModelThinkingLevel>()
+      for (const model of kraknAgent.availableModels()) {
+        for (const level of getSupportedThinkingLevels(model)) levels.add(level)
+      }
+      return [...levels]
+    }),
+    usage: createMemo(() => ({ tokens: state.tokens, cost: state.cost })),
+    currentModel: createMemo(() => state.currentModel),
+    working: createMemo(() => state.working),
+    queuedPrompts: createMemo(() => state.queued),
+    steeringPrompts: createMemo(() => state.steering)
   }
 
   onCleanup(() => {

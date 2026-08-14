@@ -1,7 +1,7 @@
 import { createKraknAgent } from "./harness/agent";
 
 const agent = createKraknAgent(process.cwd())
-await agent.newSession()
+await agent.newSession(undefined, 'opencode-go/deepseek-v4-flash')
 
 agent.switchThinkingLevel('high')
 

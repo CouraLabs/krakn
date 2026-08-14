@@ -1,5 +1,6 @@
 import { Show } from "solid-js"
 import { useTui } from "../hooks/useTui"
+import { AgentPage } from "./pages/AgentPage"
 
 // All spinners shipped by opentui-spinner (cli-spinners), for visual testing.
 
@@ -12,13 +13,13 @@ export const RouterOutlet = (props: RouterOutletProps) => {
   return (
     <box flexGrow={1} flexDirection="column" backgroundColor={theme().background}>
       <Show when={props.page === 'agent'}>
-        <box></box>
+        <AgentPage />
       </Show>
       <Show when={props.page === 'filetree'}>
-        <box></box>
+        <text>FILE TREE</text>
       </Show>
       <Show when={props.page === 'sessions'}>
-        <box></box>
+        <text>SESSIONS</text>
       </Show>
     </box>
   )

@@ -9,7 +9,6 @@ import {
 } from "@earendil-works/pi-agent-core"
 import {
   clampThinkingLevel,
-  getSupportedThinkingLevels,
   type Api,
   type AuthEvent,
   type AuthInteraction,
@@ -17,9 +16,8 @@ import {
   type Credential,
   type ImageContent,
   type Model,
-  type ModelCost,
-  type ModelThinkingLevel,
   type MutableModels,
+  type Usage,
 } from "@earendil-works/pi-ai"
 
 import process from "node:process"
@@ -39,17 +37,29 @@ import { createGrepTool } from "./tools/grep/grep"
 import { createReadTool } from "./tools/read/read"
 import { createWebFetchTool } from "./tools/web/web-fetch"
 import { createWebSearchTool } from "./tools/web/web-search"
-import type { KraknAgentEventType, SessionFile } from "./harness-types"
+import type { KraknAgentEventMap, KraknAgentEventType, QueuedPrompt, SessionFile, UsageTotals, UsageUpdateEvent } from "./harness-types"
 import { app } from "../globals"
+import { UsageLedger } from "./usage-ledger"
+
+/** A queued prompt as tracked by the agent: UI metadata plus the message handed to the agent. */
+type QueuedPromptEntry = QueuedPrompt & { msg: AgentMessage }
 
 export class KraknAgent {
+  private ledger = new UsageLedger()
+
   private env: NodeExecutionEnv
   private sessionId?: string
   private agent?: Agent
   private models: MutableModels
   private unsubscribe: (() => void) = () => {}
   private rl?: Interface
-  private eventHooks: Map<KraknAgentEventType, (event: any) => void> = new Map()
+  /** Mirror of the agent's steering queue: prompts injected while the agent is working. */
+  private steeringMirror: QueuedPromptEntry[] = []
+  /** Mirror of the agent's follow-up queue: prompts that run after the agent stops. */
+  private followUpMirror: QueuedPromptEntry[] = []
+
+  /** Registered event callbacks. Payloads are erased here; `on()` restores the per-key type at the boundary. */
+  private eventHooks: Map<keyof KraknAgentEventMap, (event: unknown) => void> = new Map()
 
   constructor(cwd: string) {
     if(!cwd) throw new Error('Path not set')
@@ -68,11 +78,13 @@ export class KraknAgent {
     this.eventHooks.clear()
     this.unsubscribe()
     this.agent?.abort()
+    this.steeringMirror = []
+    this.followUpMirror = []
   }
 
-  interrupt(): void {
-    if (!this.agent) throw new Error(`Agent not initilized`)
-    this.agent.abort()
+  /** Abort the current run. Safe to call when no session or run is active. */
+  abort(): void {
+    this.agent?.abort()
   }
 
   genSessionId(): string {
@@ -81,22 +93,14 @@ export class KraknAgent {
 
   async newSession(sessionId?: string, model?: string) {
     if(this.sessionId) throw new Error(`Session is already created`)
-    this.sessionId = sessionId ?? this.genSessionId()
 
-    let provider = "opencode-go"
-    let modelProvider = "deepseek-v4-flash"
-
+    let selectedModel: Model<Api> | undefined
     if(model) {
-      const [ p, m ] = model.split('/');
-
-      if(p && m) {
-        provider = p
-        modelProvider = m
-      }
+      const [ provider, modelId ] = model.split('/');
+      if(!provider || !modelId) throw new Error(`Invalid model: ${model}`)
+      selectedModel = this.models.getModel(provider, modelId)
+      if (!selectedModel) throw new Error(`Model not loaded: ${model}`)
     }
-
-    const selectedModel = this.models.getModel(provider, modelProvider)
-    if (!selectedModel) throw new Error("model not loaded")
 
     const tools = [
       createBashTool(this.env),
@@ -126,11 +130,17 @@ export class KraknAgent {
       }
     }
 
+    // A fresh session needs a model up front; a restored one falls back to its persisted model.
+    const sessionModel = restored.model ?? selectedModel
+    if (!sessionModel) throw new Error(`No model selected`)
+
+    this.sessionId = sessionId ?? this.genSessionId()
+
     this.agent = new Agent({
       sessionId: ulid(),
       initialState: {
         systemPrompt: restored.systemPrompt ?? this.buildSystemPrompt(toolNames),
-        model: restored.model ?? selectedModel,
+        model: sessionModel,
         thinkingLevel: restored.thinkingLevel ?? 'off',
         tools,
         messages: restored.messages,
@@ -140,10 +150,24 @@ export class KraknAgent {
     })
 
     this.unsubscribe = this.agent.subscribe((event: Extract<AgentEvent, { type: KraknAgentEventType }>) => {
+      if (event.type === 'message_end' && event.message.role === 'user') {
+        // A queued steering/follow-up prompt was drained into the transcript.
+        this.reconcileQueues()
+      }
+
       if (event.type === 'agent_end') {
         this.saveSession().catch((err) => {
           console.error('Failed to save session:', err)
         })
+      }
+
+      if (event.type === 'message_update') {
+        const ev = event.assistantMessageEvent
+        if (ev.type === 'text_delta' || ev.type === 'thinking_delta' || ev.type === 'toolcall_delta') {
+          this.eventHooks.get('usage_update')?.(this.ledger.trackDelta(ev))
+        }
+      } else if (event.type === 'message_end' && event.message.role === 'assistant') {
+        this.eventHooks.get('usage_update')?.(this.ledger.commit(event.message.usage))
       }
 
       this.eventHooks.get(event.type)?.(event);
@@ -191,8 +215,9 @@ export class KraknAgent {
     return JSON.parse(raw) as SessionFile
   }
 
-  on<K extends KraknAgentEventType>(key: K, cb: (event: Extract<AgentEvent, { type: K }>) => void) {
-    this.eventHooks.set(key, cb)
+  on<K extends keyof KraknAgentEventMap>(key: K, cb: (event: KraknAgentEventMap[K]) => void) {
+    // The map erases per-key payloads; the callback contract is restored by `KraknAgentEventMap[K]`.
+    this.eventHooks.set(key, cb as (event: unknown) => void)
   }
 
   /** Switch the agent's reasoning level, gated on model support. Returns what was actually set. */
@@ -205,35 +230,27 @@ export class KraknAgent {
 
   /** Enumerate the models the configured providers know about. Returns a copy. */
   availableModels(provider?: string): Model<Api>[] {
-    if (!this.agent) throw new Error(`Agent not initilized`)
     return this.models.getModels(provider).slice()
   }
 
-  model(): { 
-    provider: string, 
-    model: string, 
-    thinkingLevels: ModelThinkingLevel[], 
-    contextSize: number,
-    cost: ModelCost
-  } {
-    if (!this.agent) throw new Error(`Agent not initilized`)
-      
-    const model = this.agent.state.model
-
-    return {
-      provider: model.provider,
-      model: model.name ?? model.provider,
-      contextSize: model.contextWindow,
-      thinkingLevels: getSupportedThinkingLevels(model),
-      cost: model.cost
-    }
+  /** The active model, or undefined before a session exists. */
+  currentModel(): Model<Api> | undefined {
+    return this.agent?.state.model
   }
 
-  /** Switch the active model at runtime. Clamps the thinking level to the new model. */
-  switchModel(provider: string, modelId: string): Model<Api> {
-    if (!this.agent) throw new Error(`Agent not initilized`)
+  /**
+   * Select the active model. With a live session the model is swapped in place
+   * (thinking level clamped); without one, a session is created with the model.
+   */
+  async switchModel(provider: string, modelId: string): Promise<Model<Api>> {
     const model = this.models.getModel(provider, modelId)
     if (!model) throw new Error(`Model not found: ${provider}/${modelId}`)
+
+    if (!this.agent) {
+      await this.newSession(undefined, `${provider}/${modelId}`)
+      return model
+    }
+
     this.agent.state.model = model
     if (model.thinkingLevelMap) {
       this.agent.state.thinkingLevel = clampThinkingLevel(model, this.agent.state.thinkingLevel)
@@ -282,6 +299,79 @@ export class KraknAgent {
     if (!this.agent) throw new Error(`Agent not initilized`)
     if(this.agent.state.isStreaming) throw new Error(`Agent is processing`)
     await this.agent.prompt(input, images)
+  }
+
+  /** Queue a prompt to be injected into the conversation while the agent is still working. */
+  steer(text: string): QueuedPrompt {
+    const agent = this.agent
+    if (!agent) throw new Error(`Agent not initilized`)
+    const entry = this.newQueuedPrompt(text)
+    agent.steer(entry.msg)
+    this.steeringMirror.push(entry)
+    this.emitQueueUpdate()
+    return entry
+  }
+
+  /** Queue a prompt to run only after the agent would otherwise stop. */
+  queue(text: string): QueuedPrompt {
+    const agent = this.agent
+    if (!agent) throw new Error(`Agent not initilized`)
+    const entry = this.newQueuedPrompt(text)
+    agent.followUp(entry.msg)
+    this.followUpMirror.push(entry)
+    this.emitQueueUpdate()
+    return entry
+  }
+
+  /** Remove all queued steering prompts. */
+  clearSteering(): void {
+    this.agent?.clearSteeringQueue()
+    if (this.steeringMirror.length > 0) {
+      this.steeringMirror = []
+      this.emitQueueUpdate()
+    }
+  }
+
+  /** Remove all queued follow-up prompts. */
+  clearQueue(): void {
+    this.agent?.clearFollowUpQueue()
+    if (this.followUpMirror.length > 0) {
+      this.followUpMirror = []
+      this.emitQueueUpdate()
+    }
+  }
+
+  /** Build a queued prompt: the user message handed to the agent plus UI metadata. */
+  private newQueuedPrompt(text: string): QueuedPromptEntry {
+    return {
+      id: ulid(),
+      text,
+      when: Date.now(),
+      msg: { role: "user", content: text, timestamp: Date.now() },
+    }
+  }
+
+  /**
+   * Drop mirror entries whose message has been drained into the transcript.
+   * Drained prompts surface as `message_end` events carrying the same message
+   * object that was queued, so reference equality against the transcript is exact.
+   */
+  private reconcileQueues(): void {
+    if (!this.agent) return
+    const transcript = this.agent.state.messages
+    const before = this.steeringMirror.length + this.followUpMirror.length
+    this.steeringMirror = this.steeringMirror.filter((e) => !transcript.includes(e.msg))
+    this.followUpMirror = this.followUpMirror.filter((e) => !transcript.includes(e.msg))
+    const after = this.steeringMirror.length + this.followUpMirror.length
+    if (before !== after) this.emitQueueUpdate()
+  }
+
+  private emitQueueUpdate(): void {
+    this.eventHooks.get("queue_update")?.({
+      type: "queue_update",
+      steering: this.steeringMirror.map(({ id, text, when }) => ({ id, text, when })),
+      queued: this.followUpMirror.map(({ id, text, when }) => ({ id, text, when })),
+    })
   }
 
   private normalizeCwd(): string {
@@ -393,5 +483,6 @@ const createKraknAgent = (cwd: string) => {
 
 export { 
   type KraknAgentEventType,
-  createKraknAgent 
+  createKraknAgent,
+  UsageLedger 
 }

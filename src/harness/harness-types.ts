@@ -12,7 +12,52 @@ import type { GlobToolDetails, GlobToolInput } from "./tools/glob/glob-types";
 import type { WebFetchToolDetails, WebFetchToolInput, WebSearchToolDetails, WebSearchToolInput } from "./tools/web/web-types";
 import type { WriteToolInput } from "./tools/write/write-types";
 
-export type KraknAgentEventType = AgentEvent["type"];
+export type KraknAgentEventType = AgentEvent["type"] | "usage_update" | "queue_update";
+/** The streamed delta events that carry incremental output text. */
+export type UsageDeltaEvent = { type: "text_delta" | "thinking_delta" | "toolcall_delta", delta: string }
+/** Cumulative token counters, mirroring the TUI's usage state shape. */
+export interface UsageTotals {
+  in: number
+  out: number
+  cr: number
+  cw: number
+  total: number
+}
+
+/** A user prompt waiting to be processed by the agent (steering or follow-up queue). */
+export interface QueuedPrompt {
+  id: string
+  text: string
+  when: number
+}
+
+/**
+ * Fired whenever the cumulative usage changes. During streaming the `out`/`total`
+ * counters carry a live estimate built from the streamed deltas; once the assistant
+ * `message_end` lands, the real usage replaces that estimate.
+ */
+export interface UsageUpdateEvent {
+  type: "usage_update"
+  tokens: UsageTotals
+  cost: UsageTotals
+}
+
+/**
+ * Fired whenever a steering or follow-up prompt is queued, cleared, or drained
+ * into the conversation. Carries the pending prompts for both queues.
+ */
+export interface QueueUpdateEvent {
+  type: "queue_update"
+  /** Prompts injected while the agent is still working. */
+  steering: QueuedPrompt[]
+  /** Prompts that run only after the agent would otherwise stop. */
+  queued: QueuedPrompt[]
+}
+
+/** Callback map for `KraknAgent.on`, pairing each agent event with its typed payload. */
+export type KraknAgentEventMap = {
+  [K in AgentEvent["type"]]: Extract<AgentEvent, { type: K }>
+} & { usage_update: UsageUpdateEvent, queue_update: QueueUpdateEvent }
 
 /** Serialized form of an agent session, persisted to disk as JSON. */
 export interface SessionFile {

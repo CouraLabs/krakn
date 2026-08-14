@@ -1,26 +1,64 @@
 import type { Accessor } from "solid-js"
-import type { Theme } from "../themes"
-import type { SyntaxStyle } from "@opentui/core"
-import type { AgentState } from "@earendil-works/pi-agent-core"
+import type { AgentState, ThinkingLevel } from "@earendil-works/pi-agent-core"
+import type { ModelCost, ModelThinkingLevel } from "@earendil-works/pi-ai"
 import type { TuiAgentMessage } from "../shared/types/tui-harness"
+import type { QueuedPrompt, UsageTotals } from "../../harness/harness-types"
 
 export type HarnessState = {
-  model: string,
   agent?: AgentState,
-  tokens: {
-    in: number, out: number, cw: number, cr: number, total: number
-  },
-  cost: {
-    in: number, out: number, cw: number, cr: number, total: number
-  }
-  messages: TuiAgentMessage[] 
+  tokens: UsageTotals,
+  cost: UsageTotals,
+  messages: TuiAgentMessage[],
+  working: boolean,
+  /** Prompts injected while the agent is still working. */
+  steering: QueuedPrompt[],
+  /** Prompts that run only after the agent would otherwise stop. */
+  queued: QueuedPrompt[],
+  /** Active model, present once a session exists. */
+  currentModel?: ModelInfo,
+}
+
+/** TUI-facing description of a model, shared by `availableModels` and `currentModel`. */
+export type ModelInfo = {
+  provider: string,
+  modelId: string,
+  modelName: string,
+  contextSize: number,
+  thinkingLevels: ModelThinkingLevel[],
+  /** Input modalities the model accepts: text and/or vision. */
+  supports: ("text" | "image")[],
+  costs: ModelCost,
 }
 
 export type HarnessContextAction = {
+  /** Restore a persisted session by id. A fresh session has no model until `switchModel` is called. */
   createSession: (sessionId?: string) => Promise<void>
+  abort: () => void
+  /** Send a prompt for immediate processing (text only for now). No-op before a model is selected. */
   prompt: (text: string) => Promise<void>
+  /** Queue a prompt to run only after the agent would otherwise stop. No-op before a model is selected. */
+  queue: (text: string) => void
+  /** Queue a prompt to be injected while the agent is still working. No-op before a model is selected. */
+  steer: (text: string) => void
+  clearQueue: () => void
+  clearSteering: () => void
+  /** Select the active model, creating a session with it when none exists yet. */
+  switchModel: (provider: string, modelId: string) => Promise<void>
+  /** Switch the reasoning level; returns the level actually set (clamped to the model). */
+  switchThinking: (level: ThinkingLevel) => ThinkingLevel
 }
 
 export type HarnessContextSelect = {
   messages: Accessor<TuiAgentMessage[]>
+  /** Every model the configured providers know about, in the same shape as `currentModel`. */
+  availableModels: Accessor<ModelInfo[]>
+  /** All thinking levels supported by at least one available model. */
+  availableThinkingLevels: Accessor<ModelThinkingLevel[]>
+  /** Token counters and their cost, cumulative for the session. */
+  usage: Accessor<{ tokens: UsageTotals, cost: UsageTotals }>
+  currentModel: Accessor<ModelInfo | undefined>
+  /** True while the agent is processing a prompt. */
+  working: Accessor<boolean>
+  queuedPrompts: Accessor<QueuedPrompt[]>
+  steeringPrompts: Accessor<QueuedPrompt[]>
 }
