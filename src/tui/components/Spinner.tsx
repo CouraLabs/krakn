@@ -11,13 +11,11 @@ export type SpinnerProps = {
 export const Spinner = (props: SpinnerProps) => {
   const { theme } = useTui()
 
-  const colorGen = createWave(["#ff0000", "#00ff00", "#0000ff"]);
-  
   return (
     <box flexDirection="row" gap={1}>
-      <spinner frames={['▫▫▫', '▪▫▫', '■▪▫', '▪■▪', '▫▪■', '▫▫▪']} interval={200} color={colorGen} />
+      <spinner frames={['▫▫▫', '▪▫▫', '■▪▫', '▪■▪', '▫▪■', '▫▫▪']} interval={100} color={theme().accent} />
       <Show when={!!props.label}>
-        <spinner frames={[props.label!]} interval={200} color={colorGen} />
+        <spinner frames={[props.label!, `${props.label!}.`, `${props.label!}..`, `${props.label!}...`]} interval={100} color={theme().accent} />
       </Show>
       <text fg={theme().textMuted}>{icons.chevronLeft}esc{icons.chevronRight}</text>
     </box>

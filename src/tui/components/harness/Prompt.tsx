@@ -4,6 +4,7 @@ import type { TextareaRenderable } from "@opentui/core";
 import { useTui } from "../../hooks/useTui";
 import { useHarness } from "../../hooks/useHarness";
 import { icons } from "../../shared/icons";
+import { Spinner } from "../Spinner";
 
 type PromptRole = "prompt" | "command" | "bash";
 
@@ -62,15 +63,12 @@ export const Prompt: Component<{}> = () => {
     ? theme().warning : theme().text;
 
   return (
-    <box
-      id="center"
-      flexDirection="column"
-    >
+    <box id="prompt-wrapper" flexDirection="column">
       <Show when={working()}>
-        <spinner name="dots4" /><text>Thinking...</text>
+        <Spinner label="Thinking..." />
       </Show>
       <box
-        id="center-composer"
+        id="prompt-composer"
         flexDirection="column"
         flexShrink={0}
         border={["top", "bottom"]}
@@ -91,7 +89,7 @@ export const Prompt: Component<{}> = () => {
             el.focus();
           }}
           focused
-          placeholder="Ahoy, cap'n! Black Pearl at anchor, crew ready, what ya have on spyglass?"
+          placeholder="What are we building?"
           textColor={theme().text}
           keyBindings={[
             { name: "return", action: "submit" },
