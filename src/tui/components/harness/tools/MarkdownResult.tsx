@@ -1,19 +1,20 @@
+import { useContext } from "react";
 import { extractText } from "./content";
 import { CodeBlock } from "./CodeBlock";
 import { ResultFrame } from "./ResultFrame";
 import type { ToolResultProps } from "./types";
-import { useTui } from "../../../hooks/useTui";
+import { AppContext } from "../../../context/appContext";
 
 /** Fallback for tools without a dedicated renderer: markdown-formatted text. */
 export const MarkdownResult = (props: ToolResultProps) => {
-  const { theme } = useTui();
+  const { theme } = useContext(AppContext);
   const text = extractText(props.result?.content ?? []);
   return (
-    <ResultFrame borderColor={theme().borderSubtle}>
+    <ResultFrame borderColor={theme.borderSubtle}>
       <CodeBlock
         status={props.status}
         filetype="markdown"
-        fg={theme().textMuted}
+        fg={theme.textMuted}
         content={text || "(no output)"}
       />
     </ResultFrame>

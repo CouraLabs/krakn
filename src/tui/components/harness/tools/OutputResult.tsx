@@ -1,9 +1,9 @@
-import { Show } from "solid-js";
+import { useContext } from "react";
 import { extractText } from "./content";
 import { CodeBlock } from "./CodeBlock";
 import { ResultFrame } from "./ResultFrame";
 import type { ToolResultProps } from "./types";
-import { useTui } from "../../../hooks/useTui";
+import { AppContext } from "../../../context/appContext";
 
 type OutputResultProps = ToolResultProps & {
   /** Exact text that signals "nothing found" (e.g. "No matches found"). */
@@ -18,18 +18,18 @@ type OutputResultProps = ToolResultProps & {
  * muted one-liner instead of a bordered block.
  */
 export const OutputResult = (props: OutputResultProps) => {
-  const { theme } = useTui();
+  const { theme } = useContext(AppContext);
   const text = extractText(props.result?.content ?? []);
   if (text.trim() === props.emptyText) {
-    return <text fg={theme().textMuted}>{props.emptyText}</text>;
+    return <text fg={theme.textMuted}>{props.emptyText}</text>;
   }
   const warnings = props.warnings(props.result?.details);
   return (
-    <ResultFrame borderColor={theme().borderSubtle}>
+    <ResultFrame borderColor={theme.borderSubtle}>
       <CodeBlock status={props.status} filetype="text" content={text} />
-      <Show when={warnings.length > 0}>
-        <text fg={theme().warning}>[Truncated: {warnings.join(", ")}]</text>
-      </Show>
+      {warnings.length > 0 && (
+        <text fg={theme.warning}>[Truncated: {warnings.join(", ")}]</text>
+      )}
     </ResultFrame>
   );
 };

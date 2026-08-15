@@ -1,4 +1,4 @@
-preload = ["@opentui/solid/preload"]
+preload = ["@opentui/react/runtime-plugin-support"]
 
 [test]
-pathIgnorePatterns = ["pi-hashline-edit-master/**", "node_modules/**"]
+pathIgnorePatterns = ["node_modules/**"]

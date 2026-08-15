@@ -1,7 +1,8 @@
 import { Command } from "commander";
 import { createInterface } from "node:readline";
 import process from "node:process";
-import { render } from "@opentui/solid";
+import { createCliRenderer } from "@opentui/core";
+import { createElement, createRoot } from "@opentui/react";
 import { createKraknAgent, KraknAgent } from "./harness/agent";
 import { App } from "./tui/App";
 
@@ -73,12 +74,13 @@ program.action(async () => {
   }
 
   // No flags: launch the TUI.
-  render(App, {
+  const renderer = await createCliRenderer({
     useThread: true,
     openConsoleOnError: true,
     exitOnCtrlC: true,
     onDestroy: () => process.exit(0)
   })
+  createRoot(renderer).render(createElement(App))
 })
 
 program.parse()

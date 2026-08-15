@@ -1,8 +1,8 @@
-import { createEffect, createMemo, createSignal, Show, type Component } from "solid-js"
-import { useKeyboard } from "@opentui/solid";
+import { useContext, useEffect, useRef, useState } from "react"
+import { useKeyboard } from "@opentui/react";
 import type { TextareaRenderable } from "@opentui/core";
-import { useTui } from "../../hooks/useTui";
-import { useHarness } from "../../hooks/useHarness";
+import { AppContext } from "../../context/appContext";
+import { HarnessContext } from "../../context/harnessContext";
 import { icons } from "../../shared/icons";
 import { Spinner } from "../Spinner";
 
@@ -15,16 +15,17 @@ const roleOf = (value: string): PromptRole => {
   return "prompt";
 };
 
-export const Prompt: Component<{}> = () => {
-  const { abort, prompt, working } = useHarness();
-  const { theme } = useTui();
-  let textareaRef: TextareaRenderable | undefined;
+export const Prompt = () => {
+  const { action, working, currentModel } = useContext(HarnessContext);
+  const { theme } = useContext(AppContext);
+  const { abort, prompt } = action;
+  const textareaRef = useRef<TextareaRenderable | null>(null);
 
-  const [role, setRole] = createSignal<PromptRole>("prompt");
+  const [role, setRole] = useState<PromptRole>("prompt");
 
-  createEffect(() => {
-    queueMicrotask(() => textareaRef?.focus());
-  });
+  useEffect(() => {
+    queueMicrotask(() => textareaRef.current?.focus());
+  }, []);
 
   useKeyboard((key) => {
     if (key.name === "escape") {
@@ -33,15 +34,15 @@ export const Prompt: Component<{}> = () => {
   });
 
   const refreshRole = () => {
-    setRole(roleOf(textareaRef?.plainText ?? ""));
+    setRole(roleOf(textareaRef.current?.plainText ?? ""));
   };
 
-  const handleSubmit = () => {
-    const value = textareaRef?.plainText ?? "";
+  const handleSubmit = async () => {
+    const value = textareaRef.current?.plainText ?? "";
     const trimmed = value.trim();
     if (!trimmed) return;
 
-    switch (role()) {
+    switch (role) {
       case "command": {
         break;
       }
@@ -49,48 +50,43 @@ export const Prompt: Component<{}> = () => {
         break;
       }
       default:
-        void prompt(value);
+        await prompt(value);
     }
 
-    textareaRef?.clear();
-    textareaRef?.focus();
+    textareaRef.current?.clear();
+    textareaRef.current?.focus();
     setRole("prompt");
   };
 
-  const title = () => role() === "command" ? " Command " : role() === "bash" ? " Bash " : " Prompt ";
-  const titleColor = () => role() === "command"
-    ? theme().primary : role() === "bash"
-    ? theme().warning : theme().text;
+  const title = role === "command" ? " Command " : role === "bash" ? " Bash " : " Prompt ";
+  const titleColor = role === "command"
+    ? theme.primary : role === "bash"
+    ? theme.warning : theme.text;
 
   return (
     <box id="prompt-wrapper" flexDirection="column">
-      <Show when={working()}>
-        <Spinner label="Thinking..." />
-      </Show>
+      {working && <Spinner label="Thinking" />}
       <box
         id="prompt-composer"
-        flexDirection="column"
+        flexDirection="row"
         flexShrink={0}
         border={["top", "bottom"]}
-        borderColor={titleColor()}
+        borderColor={titleColor}
         borderStyle="heavy"
-        title={title()}
+        title={title}
         titleAlignment="right"
-        titleColor={titleColor()}
-        paddingLeft={2}
-        paddingRight={1}
+        titleColor={titleColor}
       >
+        <text fg={titleColor}>{icons.chevronBoldRight}</text>
         <textarea
+          marginLeft={2}
           width={"100%"}
           minHeight={1}
           maxHeight={6}
-          ref={(el) => {
-            textareaRef = el;
-            el.focus();
-          }}
+          ref={textareaRef}
           focused
           placeholder="What are we building?"
-          textColor={theme().text}
+          textColor={theme.text}
           keyBindings={[
             { name: "return", action: "submit" },
             { name: "kpenter", action: "submit" },
@@ -101,12 +97,9 @@ export const Prompt: Component<{}> = () => {
           onSubmit={handleSubmit}
         />
       </box>
-      <text position="absolute" top={1} fg={titleColor()}>{icons.chevronBoldRight}</text>
-      <Show when={true}>
-        <box flexDirection="row" gap={1}>
-          <text fg={theme().textMuted}>Model - Input - Output - Cache - Cost</text>
-        </box>
-      </Show>
+      <box flexDirection="row" gap={1}>
+        <text fg={theme.textMuted}>{currentModel?.modelName}</text>
+      </box>
     </box>
   )
 }

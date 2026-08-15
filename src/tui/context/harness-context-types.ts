@@ -1,4 +1,3 @@
-import type { Accessor } from "solid-js"
 import type { AgentState, ThinkingLevel } from "@earendil-works/pi-agent-core"
 import type { ModelCost, ModelThinkingLevel } from "@earendil-works/pi-ai"
 import type { TuiAgentMessage } from "../shared/types/tui-harness"
@@ -46,19 +45,4 @@ export type HarnessContextAction = {
   switchModel: (provider: string, modelId: string) => Promise<void>
   /** Switch the reasoning level; returns the level actually set (clamped to the model). */
   switchThinking: (level: ThinkingLevel) => ThinkingLevel
-}
-
-export type HarnessContextSelect = {
-  messages: Accessor<TuiAgentMessage[]>
-  /** Every model the configured providers know about, in the same shape as `currentModel`. */
-  availableModels: Accessor<ModelInfo[]>
-  /** All thinking levels supported by at least one available model. */
-  availableThinkingLevels: Accessor<ModelThinkingLevel[]>
-  /** Token counters and their cost, cumulative for the session. */
-  usage: Accessor<{ tokens: UsageTotals, cost: UsageTotals }>
-  currentModel: Accessor<ModelInfo | undefined>
-  /** True while the agent is processing a prompt. */
-  working: Accessor<boolean>
-  queuedPrompts: Accessor<QueuedPrompt[]>
-  steeringPrompts: Accessor<QueuedPrompt[]>
 }

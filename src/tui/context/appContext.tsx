@@ -1,7 +1,7 @@
-import { createContext, createEffect, createMemo, createSignal, type ParentComponent } from "solid-js";
-import { createStore } from "solid-js/store";
+import { createContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { allThemes, generateSubtleSyntax, generateSyntax, resolveTheme, type Theme } from "../themes";
-import type { AppContextAction, AppContextSelect, AppState, TuiVariant } from "./app-context-types";
+import type { AppContextAction, AppState, TuiVariant } from "./app-context-types";
+import type { SyntaxStyle } from "@opentui/core";
 
 const themes = allThemes()
 const defaultTheme = 'default'
@@ -9,34 +9,42 @@ const defaultThemeVariant: TuiVariant = 'dark'
 const defaultJsonTheme = themes[defaultTheme]
 const defaultResolvedTheme = resolveTheme(defaultJsonTheme, defaultThemeVariant)
 
-export const AppContext = createContext<{ action: AppContextAction, select: AppContextSelect }>({
-  action: {} as AppContextAction, select: {} as AppContextSelect
-})
+export type AppContextValue = {
+  action: AppContextAction,
+  tui: AppState['tui'],
+  theme: Theme,
+  syntax: {
+    default: SyntaxStyle,
+    muted: SyntaxStyle,
+  }
+}
 
-export const AppContextProvider: ParentComponent = (props) => {
-  const [state, setState] = createStore<AppState>({ tui: { theme: 'default', variant: 'dark' } })
-  const [theme, setTheme] = createSignal(defaultResolvedTheme)
-  const [syntax, setSyntax] = createSignal({
+export const AppContext = createContext<AppContextValue>(undefined as unknown as AppContextValue)
+
+export const AppContextProvider = ({ children }: { children: ReactNode }) => {
+  const [state, setState] = useState<AppState>({ tui: { theme: 'default', variant: 'dark' } })
+  const [theme, setTheme] = useState(defaultResolvedTheme)
+  const [syntax, setSyntax] = useState({
     default: generateSyntax(defaultResolvedTheme),
     muted: generateSubtleSyntax(defaultResolvedTheme)
   })
 
   const action: AppContextAction = {
     setTui: (data: Partial<AppState['tui']>) => {
-      setState('tui', (v) => {
+      setState((v) => {
         if(!data) return v
-        return { ...v, data }
+        return { ...v, tui: { ...v.tui, ...data } }
       })
     },
     setTheme: (theme: string) => {
-      setState('tui', 'theme', theme)
+      setState((v) => ({ ...v, tui: { ...v.tui, theme } }))
     },
     setThemeVariant: (variant: TuiVariant) => {
-      setState('tui', 'variant', variant)
+      setState((v) => ({ ...v, tui: { ...v.tui, variant } }))
     }
   }
 
-  createEffect(() => {
+  useEffect(() => {
     const variant = state.tui.variant
     const theme = state.tui.theme
     const resolvedTheme = resolveTheme(themes[theme], variant)
@@ -45,18 +53,13 @@ export const AppContextProvider: ParentComponent = (props) => {
       default: generateSyntax(resolvedTheme),
       muted: generateSubtleSyntax(resolvedTheme)
     })
-  })
+  }, [state.tui.variant, state.tui.theme])
 
-  const select: AppContextSelect = {
-    tui: createMemo(() => state.tui),
-    agent: createMemo(() => state.agent),
-    theme: theme,
-    syntax: syntax
-  }
+  const tui = useMemo(() => state.tui, [state.tui])
 
   return (
-    <AppContext.Provider value={{ action, select }}>
-      {props.children}
+    <AppContext.Provider value={{ action, tui, theme, syntax }}>
+      {children}
     </AppContext.Provider>
   )
 }

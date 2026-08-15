@@ -1,10 +1,10 @@
-import { createContext, createMemo, onCleanup, onMount, type ParentComponent } from "solid-js";
-import type { HarnessContextAction, HarnessContextSelect, HarnessState, ModelInfo } from "./harness-context-types";
-import { createStore } from "solid-js/store";
-import { createKraknAgent } from "../../harness/agent";
+import { createContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import type { HarnessContextAction, HarnessState, ModelInfo } from "./harness-context-types";
+import { createKraknAgent, KraknAgent } from "../../harness/agent";
 import type { TuiAgentMessage, TuiMessageStatus, TuiToolCallAgentMessage } from "../shared/types/tui-harness";
 import { getSupportedThinkingLevels, type Api, type Model, type ModelThinkingLevel } from "@earendil-works/pi-ai";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
+import type { QueuedPrompt, UsageTotals } from "../../harness/harness-types";
 import { ulid } from "ulid";
 
 /** Map an assistant message's final stopReason onto the UI lifecycle status. */
@@ -28,41 +28,47 @@ const toModelInfo = (model: Model<Api>): ModelInfo => ({
   costs: model.cost,
 })
 
-export const HarnessContext = createContext<{ action: HarnessContextAction, select: HarnessContextSelect }>({
-  action: {} as HarnessContextAction, select: {} as HarnessContextSelect
-})
+export type HarnessContextValue = {
+  action: HarnessContextAction,
+  messages: TuiAgentMessage[],
+  availableModels: ModelInfo[],
+  availableThinkingLevels: ModelThinkingLevel[],
+  usage: { tokens: UsageTotals; cost: UsageTotals },
+  currentModel: ModelInfo | undefined,
+  working: boolean,
+  queuedPrompts: QueuedPrompt[],
+  steeringPrompts: QueuedPrompt[],
+}
 
-export const HarnessContextProvider: ParentComponent = (props) => {
-  const [state, setState] = createStore<HarnessState>({
+export const HarnessContext = createContext<HarnessContextValue>(undefined as unknown as HarnessContextValue)
+
+export const HarnessContextProvider = ({ children }: { children: ReactNode }) => {
+  const [state, setState] = useState<HarnessState>({
     messages: [], tokens: { in: 0, out: 0, cr: 0, cw: 0, total: 0 }, cost: { in: 0, out: 0, cr: 0, cw: 0, total: 0 },
     working: false, steering: [], queued: [], currentModel: undefined
   })
 
-  const kraknAgent = createKraknAgent(process.cwd())
+  const kraknAgentRef = useRef<KraknAgent | null>(null)
+  if (kraknAgentRef.current === null) {
+    kraknAgentRef.current = createKraknAgent(process.cwd())
+  }
+  const kraknAgent = kraknAgentRef.current
 
-  onMount(() => {
+  useEffect(() => {
     let textId = ''
     let thinkingId = ''
 
-    kraknAgent.on('agent_start', () => setState('working', true))
-    kraknAgent.on('agent_end', () => setState('working', false))
-    kraknAgent.on('queue_update', (e) => {
-      setState('steering', e.steering)
-      setState('queued', e.queued)
-    })
-    
+    kraknAgent.on('agent_start', () => setState((st) => ({ ...st, working: true })))
+    kraknAgent.on('queue_update', (e) => setState((st) => ({ ...st, steering: e.steering, queued: e.queued })))
+    kraknAgent.on('usage_update', (e) => setState((st) => ({ ...st, tokens: e.tokens, cost: e.cost })))
+
     kraknAgent.on('message_end', (e) => {
       if(e.message.role === "assistant") {
         const status = statusFromStopReason(e.message.stopReason)
-        setState('messages', (msgs) => msgs.map((m) =>
-          m.role === 'assistant' && m.status === 'processing' ? { ...m, status } : m
-        ))
+        setState((st) => ({
+          ...st, messages: st.messages.map((m) => m.role === 'assistant' && m.status === 'processing' ? { ...m, status } : m)
+        }))
       }
-    })
-
-    kraknAgent.on('usage_update', (e) => {
-      setState('tokens', e.tokens)
-      setState('cost', e.cost)
     })
 
     kraknAgent.on('message_update', (e) => {
@@ -105,10 +111,6 @@ export const HarnessContextProvider: ParentComponent = (props) => {
     })
 
     kraknAgent.on('tool_execution_end', (e) => {
-      // On success keep the full AgentToolResult (`{ content, details }`) so
-      // ToolView can render text/diffs. On error the agent loop returns
-      // `{ content:[text], details:{}, isError:true }`, so carry the message
-      // in `out` and flag status instead of the empty details.
       const errorText = (e.result?.content as Array<{ type: string; text?: string }> | undefined)
         ?.filter((c) => c.type === 'text')
         .map((c) => c.text ?? '')
@@ -120,33 +122,30 @@ export const HarnessContextProvider: ParentComponent = (props) => {
         when: Date.now()
       })
     })
-  })
+
+    return () => {
+      kraknAgent.dispose()
+    }
+  }, [kraknAgent])
 
   const pushMessage = (upsertMsg: TuiAgentMessage) => {
-    setState("messages", (msgs) => {
-      let exstMsg = msgs.findIndex(a => a.id === upsertMsg.id) 
-      if(exstMsg > -1) {
-        const existing = msgs[exstMsg]
-        if('content' in existing && 'content' in upsertMsg) {
-          msgs[exstMsg] = {
-            ...existing,
-            content: existing.content + upsertMsg.content
+    setState((st) => {
+      const k = st.messages.findIndex(a => a.id === upsertMsg.id)
+      if(k > -1) {
+        const updated = (() => {
+          const prev = st.messages[k]
+          if('content' in prev && 'content' in upsertMsg) {
+            return { ...prev, content: prev.content + upsertMsg.content }
+          } else if(prev.role === 'tool' && upsertMsg.role === 'tool') {
+            return { ...prev, ...upsertMsg, info: { ...prev.info, ...upsertMsg.info } as TuiToolCallAgentMessage['info'] }
+          } else {
+            return { ...prev, ...upsertMsg }
           }
-        } else if(existing.role === 'tool' && upsertMsg.role === 'tool') {
-          msgs[exstMsg] = {
-            ...existing,
-            ...upsertMsg,
-            info: { ...existing.info, ...upsertMsg.info } as TuiToolCallAgentMessage['info']
-          }
-        } else {
-          msgs[exstMsg] = {
-            ...existing,
-            ...upsertMsg
-          }
-        }
-        return msgs
+        })()
+        return { ...st, messages: st.messages.map((m, i) => i === k ? updated : m) }
       }
-      return [...msgs, upsertMsg]
+
+      return { ...st, messages: [...st.messages, upsertMsg] }
     })
   }
 
@@ -154,7 +153,7 @@ export const HarnessContextProvider: ParentComponent = (props) => {
     createSession: async (sessionId?: string) => {
       await kraknAgent.newSession(sessionId)
       const model = kraknAgent.currentModel()
-      setState('currentModel', model ? toModelInfo(model) : undefined)
+      setState((st) => ({ ...st, currentModel: model ? toModelInfo(model) : undefined }))
     },
     abort: () => kraknAgent.abort(),
     prompt: async (text: string) => {
@@ -183,33 +182,37 @@ export const HarnessContextProvider: ParentComponent = (props) => {
     switchModel: async (provider: string, modelId: string) => {
       await kraknAgent.switchModel(provider, modelId)
       const model = kraknAgent.currentModel()
-      setState('currentModel', model ? toModelInfo(model) : undefined)
+      setState((st) => ({ ...st, currentModel: model ? toModelInfo(model) : undefined }))
     },
     switchThinking: (level: ThinkingLevel) => kraknAgent.switchThinkingLevel(level)
   }
 
-  const select: HarnessContextSelect = {
-    messages: createMemo(() => state.messages),
-    availableModels: createMemo(() => kraknAgent.availableModels().map(toModelInfo)),
-    availableThinkingLevels: createMemo(() => {
-      const levels = new Set<ModelThinkingLevel>()
-      for (const model of kraknAgent.availableModels()) {
-        for (const level of getSupportedThinkingLevels(model)) levels.add(level)
-      }
-      return [...levels]
-    }),
-    usage: createMemo(() => ({ tokens: state.tokens, cost: state.cost })),
-    currentModel: createMemo(() => state.currentModel),
-    working: createMemo(() => state.working),
-    queuedPrompts: createMemo(() => state.queued),
-    steeringPrompts: createMemo(() => state.steering)
-  }
-
-  onCleanup(() => {
-    kraknAgent.dispose()
-  })
+  const messages = state.messages
+  const availableModels = useMemo(() => kraknAgent.availableModels().map(toModelInfo), [kraknAgent])
+  const usage = useMemo(() => ({ tokens: state.tokens, cost: state.cost }), [state.tokens, state.cost])
+  const currentModel = state.currentModel
+  const working = state.working
+  const queuedPrompts = state.queued
+  const steeringPrompts = state.steering
+  const availableThinkingLevels = useMemo(() => {
+    const levels = new Set<ModelThinkingLevel>()
+    for (const model of kraknAgent.availableModels()) {
+      for (const level of getSupportedThinkingLevels(model)) levels.add(level)
+    }
+    return [...levels]
+  }, [kraknAgent])
 
   return (
-    <HarnessContext.Provider value={{ action, select }}>{props.children}</HarnessContext.Provider>
+    <HarnessContext.Provider value={{
+      action,
+      messages,
+      availableModels,
+      availableThinkingLevels,
+      usage,
+      currentModel,
+      working,
+      queuedPrompts,
+      steeringPrompts
+    }}>{children}</HarnessContext.Provider>
   )
 }

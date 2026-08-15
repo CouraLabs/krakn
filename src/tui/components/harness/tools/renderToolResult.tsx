@@ -1,5 +1,6 @@
-import type { JSX } from "solid-js";
+import { useContext, type ReactNode } from "react";
 import { extractText } from "./content";
+import { AppContext } from "../../../context/appContext";
 import { argFiletype } from "./filetype";
 import { grepWarnings, findWarnings, lsWarnings } from "./warnings";
 import { CodeBlock } from "./CodeBlock";
@@ -11,7 +12,6 @@ import { WriteResult } from "./WriteResult";
 import { OutputResult } from "./OutputResult";
 import { MarkdownResult } from "./MarkdownResult";
 import type { ToolResultProps } from "./types";
-import { useTui } from "../../../hooks/useTui";
 
 /**
  * Render the expanded result body for one tool call.
@@ -23,24 +23,24 @@ import { useTui } from "../../../hooks/useTui";
  * for edit, truncation metadata for the output tools, plain text for the
  * rest) and falls back to markdown for unknown tools.
  */
-export const renderToolResult = (props: ToolResultProps): JSX.Element => {
-  const { theme } = useTui();
+export const renderToolResult = (props: ToolResultProps): ReactNode => {
+  const { theme } = useContext(AppContext);
   const text = extractText(props.result?.content ?? []);
 
   // Still running and nothing streamed yet.
   if (props.status === "running" && !props.result) {
-    return <text fg={theme().info}>running…</text>;
+    return <text fg={theme.info}>running…</text>;
   }
 
   // Error: bash throws `Command exited with code N` (bash.js:343), edit and
   // the other tools surface their error message in content[].text.
   if (props.isError) {
     return (
-      <ResultFrame borderColor={theme().error}>
+      <ResultFrame borderColor={theme.error}>
         <CodeBlock
           status={props.status}
           filetype={argFiletype(props.args) ?? "text"}
-          fg={theme().error}
+          fg={theme.error}
           content={text || "(no output)"}
         />
       </ResultFrame>

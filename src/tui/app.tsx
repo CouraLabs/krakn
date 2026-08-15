@@ -1,7 +1,8 @@
 import { AppContextProvider } from "./context/appContext"
 import { DialogContextProvider } from "./context/dialogContext"
-import { useTui } from "./hooks/useTui"
-import { useTerminalDimensions } from "@opentui/solid"
+import { useContext } from "react"
+import { AppContext } from "./context/appContext"
+import { useTerminalDimensions } from "@opentui/react"
 import { Header } from "./components/Header"
 import { Footer } from "./components/Footer"
 import { CommandContextProvider } from "./context/commandContext"
@@ -12,10 +13,10 @@ export const App = () => {
   
   const Boostrap = () => {
     const dims = useTerminalDimensions()
-    const { theme } = useTui()
+    const { theme } = useContext(AppContext)
     
     return (
-      <box id="box-wrapper" flexDirection="column" height={dims().height} width={dims().width} backgroundColor={theme().background}>
+      <box id="box-wrapper" flexDirection="column" height={dims.height} width={dims.width} backgroundColor={theme.background}>
         <Header />
         <RouterOutlet page="agent" />
         <Footer />

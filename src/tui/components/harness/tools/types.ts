@@ -1,4 +1,4 @@
-import type { JSX } from "solid-js";
+import type { ReactNode } from "react";
 
 export type ToolResultProps = {
   name: string;
@@ -9,4 +9,4 @@ export type ToolResultProps = {
   status: "running" | "done" | "error";
 };
 
-export type ToolRenderer = (props: ToolResultProps) => JSX.Element;
+export type ToolRenderer = (props: ToolResultProps) => ReactNode;

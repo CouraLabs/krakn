@@ -1,12 +1,13 @@
+import { useContext } from "react";
 import { extractText } from "./content";
 import { argFiletype } from "./filetype";
 import { CodeBlock } from "./CodeBlock";
 import type { ToolResultProps } from "./types";
 import { ResultFrame } from "./ResultFrame";
-import { useTui } from "../../../hooks/useTui";
+import { AppContext } from "../../../context/appContext";
 
 export const EditResult = (props: ToolResultProps) => {
-  const { theme, syntax } = useTui();
+  const { theme, syntax } = useContext(AppContext);
   const text = extractText(props.result?.content ?? []);
   // details: { diff, patch, firstChangedLine? } (edit.d.ts:18-25). The Diff
   // renderable parses unified patches (`@@` headers), so feed it
@@ -15,10 +16,10 @@ export const EditResult = (props: ToolResultProps) => {
   const filetype = argFiletype(props.args);
   if (patch) {
     return (
-      <ResultFrame borderColor={theme().borderSubtle}>
+      <ResultFrame borderColor={theme.borderSubtle}>
         <diff
           diff={patch}
-          syntaxStyle={syntax().muted}
+          syntaxStyle={syntax.muted}
           filetype={filetype}
           conceal={props.status !== "running"}
         />
@@ -26,7 +27,7 @@ export const EditResult = (props: ToolResultProps) => {
     );
   }
   return (
-    <box border borderStyle="single" borderColor={theme().border}>
+    <box border borderStyle="single" borderColor={theme.border}>
       <CodeBlock status={props.status} filetype={filetype ?? "text"} content={text || "(no output)"} />
     </box>
   );

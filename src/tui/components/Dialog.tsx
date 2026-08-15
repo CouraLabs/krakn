@@ -1,8 +1,8 @@
-import { createEffect, createMemo } from "solid-js"
-import type { JSX } from "solid-js"
-import { Portal, useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
-import { RGBA, type BoxRenderable } from "@opentui/core"
-import { useTui } from "../hooks/useTui"
+import { useContext, useMemo } from "react"
+import type { ReactNode } from "react"
+import { createPortal, useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
+import { RGBA } from "@opentui/core"
+import { AppContext } from "../context/appContext"
 import { Button } from "./Button"
 
 export type DialogSize = "small" | "medium" | "full"
@@ -15,7 +15,7 @@ export type DialogProps = {
   /** Dialog size; defaults to "medium". */
   size?: DialogSize
   /** Dialog body, rendered below the header. */
-  children: JSX.Element
+  children: ReactNode
 }
 
 export type DialogGeometry = { top: number, left: number, width: number, height: number }
@@ -44,8 +44,8 @@ export function computeDialogGeometry(size: DialogSize, term: { width: number, h
 
 /**
  * Terminal modal dialog built on opentui. Uses the same technique as the
- * Dropdown: a Portal mounts into the render root below the viewport, which is
- * repurposed as an absolute full-screen overlay.
+ * Dropdown: a portal into the render root below the viewport, with a full-screen
+ * absolute overlay.
  *
  * - The body is `props.children`.
  * - Centered on the terminal; three sizes: small (30%), medium (70%), full.
@@ -53,49 +53,41 @@ export function computeDialogGeometry(size: DialogSize, term: { width: number, h
  * - Escape or clicking the overlay outside the dialog closes it.
  */
 export function Dialog(props: DialogProps) {
-  const { theme } = useTui()
+  const { theme } = useContext(AppContext)
   const dims = useTerminalDimensions()
   const renderer = useRenderer()
-  const size = () => props.size ?? "medium"
-  const geo = createMemo(() => computeDialogGeometry(size(), dims()))
-  let overlayBox: BoxRenderable | undefined
+  const size = props.size ?? "medium"
+  const geo = useMemo(() => computeDialogGeometry(size, dims), [size, dims.width, dims.height])
 
   // Escape closes the dialog while it is open.
   useKeyboard((key) => {
     if (props.open && key.name === "escape") props.onClose()
   })
 
-  // The opentui <Portal> mounts its children into a plain flow box appended to
-  // the render root — below the viewport. Repurpose it as an absolute
-  // full-screen overlay (visible only while the dialog is open); clicking it
-  // closes the dialog. Clicks inside the dialog stop propagation so they do
-  // not reach this overlay handler.
-  createEffect(() => {
-    const o = overlayBox
-    if (!o) return
-    const d = dims()
-    const overlay = RGBA.fromInts(0, 0, 0, 180)
-    o.position = "absolute"
-    o.left = 0
-    o.top = 0
-    o.zIndex = 60
-    o.width = d.width
-    o.height = d.height
-    o.visible = props.open
-    o.backgroundColor = overlay
-    o.onMouseDown = () => props.onClose()
-  })
-
-  return (
-    <Portal mount={renderer.root} ref={(el) => { overlayBox = el as BoxRenderable | undefined }}>
+  return createPortal(
+    <>
+      {/* Full-screen overlay; clicking it closes the dialog. */}
       <box
         position="absolute"
-        top={geo().top}
-        left={geo().left}
-        width={geo().width}
-        height={geo().height}
+        left={0}
+        top={0}
+        zIndex={60}
+        width={dims.width}
+        height={dims.height}
+        visible={props.open}
+        backgroundColor={RGBA.fromInts(0, 0, 0, 180)}
+        onMouseDown={() => props.onClose()}
+      />
+      {/* Dialog panel; clicks inside stop propagation so they do not reach the overlay. */}
+      <box
+        position="absolute"
+        top={geo.top}
+        left={geo.left}
+        width={geo.width}
+        height={geo.height}
         zIndex={70}
-        backgroundColor={theme().backgroundPanel}
+        visible={props.open}
+        backgroundColor={theme.backgroundPanel}
         flexDirection="column"
         onMouseDown={(e) => e.stopPropagation()}
       >
@@ -105,16 +97,18 @@ export function Dialog(props: DialogProps) {
           justifyContent="space-between"
           paddingX={2} paddingY={1}
         >
-          <text fg={theme().text}>{props.title ?? ""}</text>
+          <text fg={theme.text}>{props.title ?? ""}</text>
           <Button label="X" onClick={props.onClose} />
         </box>
-        <box flexGrow={1} paddingX={1} paddingY={1} backgroundColor={theme().backgroundElement}>
+        <box flexGrow={1} paddingX={1} paddingY={1} backgroundColor={theme.backgroundElement}>
           {props.children}
         </box>
-        <box paddingX={1} paddingY={1} alignItems="flex-end" backgroundColor={theme().backgroundPanel}>
+        <box paddingX={1} paddingY={1} alignItems="flex-end" backgroundColor={theme.backgroundPanel}>
           <Button label=" cancel " onClick={props.onClose} />
         </box>
       </box>
-    </Portal>
+    </>,
+    renderer.root,
+    null
   )
 }

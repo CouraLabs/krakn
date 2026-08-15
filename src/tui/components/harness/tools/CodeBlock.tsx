@@ -1,6 +1,6 @@
-import type { JSX } from "solid-js";
+import { useContext, type ReactNode } from "react";
 import type { RGBA } from "@opentui/core";
-import { useTui } from "../../../hooks/useTui";
+import { AppContext } from "../../../context/appContext";
 
 type CodeBlockProps = {
   content: string;
@@ -15,12 +15,12 @@ type CodeBlockProps = {
  * conceal follow the call status so output appears incrementally while a
  * running tool streams.
  */
-export const CodeBlock = (props: CodeBlockProps): JSX.Element => {
-  const { syntax } = useTui();
+export const CodeBlock = (props: CodeBlockProps): ReactNode => {
+  const { syntax } = useContext(AppContext);
   const running = props.status === "running";
   return (
     <code
-      syntaxStyle={syntax().muted}
+      syntaxStyle={syntax.muted}
       streaming={running}
       conceal={!running}
       filetype={props.filetype}

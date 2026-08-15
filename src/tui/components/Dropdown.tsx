@@ -1,7 +1,7 @@
-import { createEffect, createMemo, createSignal, For, onMount } from "solid-js"
-import { Portal, useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
+import { useContext, useMemo, useRef, useState } from "react"
+import { createPortal, useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
 import { TextAttributes, type BoxRenderable } from "@opentui/core"
-import { useTui } from "../hooks/useTui"
+import { AppContext } from "../context/appContext"
 
 export type DropdownSide = "bottom" | "top" | "right" | "left"
 
@@ -29,7 +29,7 @@ export type DropdownProps<T> = {
   /** Optional stable id for the trigger box (useful for tests/introspection). */
   triggerId?: string
   /** Custom trigger renderer. Receives the open state. */
-  renderTrigger?: (open: () => boolean, selectedLabel: string) => unknown
+  renderTrigger?: (open: boolean, selectedLabel: string) => unknown
 }
 
 export type Placement = { top: number, left: number, side: DropdownSide }
@@ -102,57 +102,51 @@ export function computePlacement(geo: DropdownGeo): Placement {
  * - Hover highlights; click selects and closes.
  */
 export function Dropdown<T>(props: DropdownProps<T>) {
-  const { theme } = useTui()
+  const { theme } = useContext(AppContext)
   const dims = useTerminalDimensions()
-  const [open, setOpen] = createSignal(false)
-  const [hovered, setHovered] = createSignal('')
-  const [placement, setPlacement] = createSignal<Placement>()
+  const [open, setOpen] = useState(false)
+  const [hovered, setHovered] = useState('')
+  const [placement, setPlacement] = useState<Placement>()
   const renderer = useRenderer()
-  let triggerRef: BoxRenderable | undefined
-  let overlayBox: BoxRenderable | undefined
+  const triggerRef = useRef<BoxRenderable | null>(null)
 
-  onMount(() => {
-  })
-
-  const selected = createMemo(() => props.options.find((o) => o.value === props.value))
-  const selectedLabel = () => selected()?.label ?? props.placeholder ?? "Select…"
+  const selected = useMemo(() => props.options.find((o) => o.value === props.value), [props.options, props.value])
+  const selectedLabel = selected?.label ?? props.placeholder ?? "Select…"
   // Show the selected option first in the open list so the current value is
   // always immediately visible; the rest keep their original order.
-  const orderedOptions = createMemo<DropdownOption<T>[]>(() => {
+  const orderedOptions = useMemo<DropdownOption<T>[]>(() => {
     if (props.value === undefined) return props.options
     const idx = props.options.findIndex((o) => o.value === props.value)
     if (idx <= 0) return props.options
     const rest = [...props.options]
     const [sel] = rest.splice(idx, 1)
     return [sel, ...rest]
-  })
-  const maxVisible = () => Math.max(1, props.maxVisible ?? 10)
-  const visibleRows = createMemo(() => Math.min(orderedOptions().length, maxVisible()))
+  }, [props.options, props.value])
+  const maxVisible = Math.max(1, props.maxVisible ?? 10)
+  const visibleRows = Math.min(orderedOptions.length, maxVisible)
   // Longest option label, measured in display cells.
-  const longestLabel = createMemo(() =>
-    orderedOptions().reduce((m, o) => {
+  const longestLabel = orderedOptions.reduce((m, o) => {
       const len = [...o.label].length
       return len > m ? len : m
-    }, 0),
-  )
+    }, 0)
   // Menu width = longest label + the row padding (paddingX) on each side, so
   // every option fits regardless of how the trigger happens to be laid out.
-  const menuWidth = () => props.width ?? longestLabel() + 2
-  const menuHeight = () => visibleRows()
+  const menuWidth = props.width ?? longestLabel + 2
+  const menuHeight = visibleRows
 
   const close = () => setOpen(false)
 
   const openMenu = () => {
-    const t = dims()
+    const t = dims
     setHovered('')
     setPlacement(computePlacement({
       trigger: {
-        x: triggerRef?.screenX ?? 0,
-        y: triggerRef?.screenY ?? 0,
-        width: triggerRef?.width ?? 0,
-        height: triggerRef?.height ?? 1,
+        x: triggerRef.current?.screenX ?? 0,
+        y: triggerRef.current?.screenY ?? 0,
+        width: triggerRef.current?.width ?? 0,
+        height: triggerRef.current?.height ?? 1,
       },
-      menuSize: { width: menuWidth(), height: menuHeight() },
+      menuSize: { width: menuWidth, height: menuHeight },
       term: { width: t.width, height: t.height },
       side: props.side,
       offset: props.offset,
@@ -160,38 +154,17 @@ export function Dropdown<T>(props: DropdownProps<T>) {
     setOpen(true)
   }
 
-  const toggle = () => (open() ? close() : openMenu())
+  const toggle = () => (open ? close() : openMenu())
 
   // Escape closes the menu while it is open.
   useKeyboard((key) => {
-    if (open() && key.name === "escape") close()
-  })
-
-  // The opentui <Portal> mounts its children into a plain flow box that is
-  // appended to the render root — after every layout-sibling, i.e. *below* the
-  // terminal viewport. Repurpose that container as an absolute full-screen
-  // overlay (visible only while the menu is open) so the absolute popup
-  // coordinates computed by `computePlacement` land in screen space. Clicking
-  // anywhere on the overlay closes the menu, which also keeps the trigger
-  // toggle behaving while the menu is open.
-  createEffect(() => {
-    const o = overlayBox
-    if (!o) return
-    const d = dims()
-    o.position = "absolute"
-    o.left = 0
-    o.top = 0
-    o.zIndex = 50
-    o.width = d.width
-    o.height = d.height
-    o.visible = open() && !!placement()
-    o.onMouseDown = () => close()
+    if (open && key.name === "escape") close()
   })
 
   return (
     <>
       {props.renderTrigger
-        ? props.renderTrigger(open, selectedLabel())
+        ? props.renderTrigger(open, selectedLabel)
         : (
           <box
             ref={triggerRef}
@@ -202,58 +175,70 @@ export function Dropdown<T>(props: DropdownProps<T>) {
             paddingX={1}
             flexDirection="row"
             gap={1}
-            backgroundColor={theme().backgroundElement}
+            backgroundColor={theme.backgroundElement}
           >
-            <text fg={theme().text}>{props.key}:</text>
-            <text fg={theme().text} attributes={TextAttributes.DIM}>{selectedLabel()}</text>
-            <text fg={theme().text} attributes={TextAttributes.DIM}>{open() ? "▴" : "▾"}</text>
+            <text fg={theme.text}>{props.key}:</text>
+            <text fg={theme.text} attributes={TextAttributes.DIM}>{selectedLabel}</text>
+            <text fg={theme.text} attributes={TextAttributes.DIM}>{open ? "▴" : "▾"}</text>
           </box>
         )}
-      {/* Always mounted via portal; the container is configured as a full-screen
-          overlay above and hidden until opened. */}
-      <Portal mount={renderer.root} ref={(el) => { overlayBox = el as BoxRenderable | undefined }}>
+      {/* Always mounted via portal; the overlay is a full-screen absolute box
+          above the layout, hidden until opened. Clicking it closes the menu. */}
+      {createPortal(
         <box
-          id={props.menuId}
           position="absolute"
-          top={placement()?.top ?? 0}
-          left={placement()?.left ?? 0}
-          width={menuWidth() + 6}
-          height={menuHeight() + 2}
-          zIndex={100}
-          paddingX={2}
-          paddingY={1}
-          backgroundColor={theme().backgroundMenu}
-          flexDirection="column"
-          visible={open() && !!placement()}
+          left={0}
+          top={0}
+          zIndex={50}
+          width={dims.width}
+          height={dims.height}
+          visible={open && !!placement}
+          onMouseDown={() => close()}
         >
-          <scrollbox>
-            <For each={orderedOptions()}>
-              {(option, i) => {
-                const absIndex = `item-${i()}`
-                const isSelected = selected() === option
+          <box
+            id={props.menuId}
+            position="absolute"
+            top={placement?.top ?? 0}
+            left={placement?.left ?? 0}
+            width={menuWidth + 6}
+            height={menuHeight + 2}
+            zIndex={100}
+            paddingX={2}
+            paddingY={1}
+            backgroundColor={theme.backgroundMenu}
+            flexDirection="column"
+            visible={open && !!placement}
+          >
+            <scrollbox>
+              {orderedOptions.map((option, i) => {
+                const absIndex = `item-${i}`
+                const isSelected = selected === option
                 return (
                   <box
-                    id={`item-${i()}`}
+                    key={option.value !== undefined ? String(option.value) : absIndex}
+                    id={`item-${i}`}
                     height={1}
                     paddingX={1}
-                    backgroundColor={hovered() === absIndex ? theme().border : undefined}
-                    onMouseOver={() => setHovered(`item-${i()}`)}
+                    backgroundColor={hovered === absIndex ? theme.border : undefined}
+                    onMouseOver={() => setHovered(`item-${i}`)}
                     onMouseDown={() => {
                       setHovered('')
                       props.onChange?.(option.value, option)
                       close()
                     }}
                   >
-                    <text fg={isSelected ? theme().accent : hovered() === absIndex ? theme().text : theme().textMuted}>
+                    <text fg={isSelected ? theme.accent : hovered === absIndex ? theme.text : theme.textMuted}>
                       {option.label}
                     </text>
                   </box>
                 )
-              }}
-            </For>
-          </scrollbox>
-        </box>
-      </Portal>
+              })}
+            </scrollbox>
+          </box>
+        </box>,
+        renderer.root,
+        null
+      )}
     </>
   )
 }

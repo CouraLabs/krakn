@@ -1,4 +1,4 @@
-import type { JSX } from "solid-js";
+import type { ReactNode } from "react";
 import type { RGBA } from "@opentui/core";
 
 /**
@@ -7,8 +7,8 @@ import type { RGBA } from "@opentui/core";
  */
 export const ResultFrame = (props: {
   borderColor: RGBA;
-  children?: JSX.Element;
-}): JSX.Element => (
+  children?: ReactNode;
+}): ReactNode => (
   <box
     paddingX={2}
     flexDirection="column"

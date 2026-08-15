@@ -1,18 +1,19 @@
-import type { Component } from "solid-js"
-import { useTui } from "../hooks/useTui"
+import { useContext } from "react"
+import { AppContext } from "../context/appContext"
 import { TextAttributes } from "@opentui/core"
 import { app, THEME_VARIANTS, THEMES } from "../../globals"
 import { Dropdown } from "./Dropdown"
 import type { TuiVariant } from "../context/app-context-types"
 
-export const Header: Component<{}> = () => {
-  const { theme, tui, setTheme: themeChange, setThemeVariant: variantChange } = useTui()
+export const Header = () => {
+  const { action, theme, tui } = useContext(AppContext)
+  const { setTheme: themeChange, setThemeVariant: variantChange } = action
 
   return (
     <box id="box-header" flexDirection="row" alignItems="baseline" paddingX={2} paddingY={1}>
       <box flexDirection="row" flexGrow={1} flexShrink={1} flexBasis={0} gap={1}>
-        <text fg={theme().text}>Path:</text>
-        <text fg={theme().textMuted} attributes={TextAttributes.ITALIC}>{app.cwdView}</text>
+        <text fg={theme.text}>Path:</text>
+        <text fg={theme.textMuted} attributes={TextAttributes.ITALIC}>{app.cwdView}</text>
       </box>
       <box
         flexDirection="row"
@@ -24,7 +25,7 @@ export const Header: Component<{}> = () => {
       >
         <Dropdown<string>
           options={THEMES}
-          value={tui().theme}
+          value={tui.theme}
           key={'Theme'}
           onChange={(v) => themeChange(v)}
           placeholder="Select theme"
@@ -32,7 +33,7 @@ export const Header: Component<{}> = () => {
         <Dropdown<TuiVariant>
           options={THEME_VARIANTS}
           key={'Variant'}
-          value={tui().variant}
+          value={tui.variant}
           onChange={(v) => variantChange(v)}
           placeholder="Select variant"
         />

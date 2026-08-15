@@ -1,5 +1,5 @@
-import { createSignal, Show } from "solid-js"
-import { useTui } from "../hooks/useTui"
+import { useContext, useState } from "react"
+import { AppContext } from "../context/appContext"
 import { icons } from "../shared/icons"
 
 export type ButtonProps = {
@@ -13,26 +13,26 @@ export type ButtonProps = {
  * The foreground/background highlight while hovered; clicking fires `onClick`.
  */
 export function Button(props: ButtonProps) {
-  const { theme } = useTui()
-  const [hovered, setHovered] = createSignal(false)
+  const { theme } = useContext(AppContext)
+  const [hovered, setHovered] = useState(false)
 
   return (
     <box flexDirection="row" gap={1}>
-      <Show when={props.addWrappers}>
-        <text bg={hovered() ? theme().accent : theme().backgroundElement} fg={theme().textMuted}>❲</text>
-      </Show>
+      {props.addWrappers && (
+        <text bg={hovered ? theme.accent : theme.backgroundElement} fg={theme.textMuted}>❲</text>
+      )}
       <text
-        fg={hovered() ? theme().accent : theme().text}
-        bg={hovered() ? theme().accent : theme().backgroundElement}
+        fg={hovered ? theme.accent : theme.text}
+        bg={hovered ? theme.accent : theme.backgroundElement}
         onMouseOver={() => setHovered(true)}
         onMouseOut={() => setHovered(false)}
         onMouseDown={() => props.onClick?.()}
       >
         {props.label}
       </text>
-      <Show when={props.addWrappers}>
-        <text bg={hovered() ? theme().accent : theme().backgroundElement} fg={theme().textMuted}>❳</text>
-      </Show>
+      {props.addWrappers && (
+        <text bg={hovered ? theme.accent : theme.backgroundElement} fg={theme.textMuted}>❳</text>
+      )}
     </box>
   )
 }

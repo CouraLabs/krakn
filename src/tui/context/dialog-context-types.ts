@@ -1,5 +1,4 @@
-import type { Accessor } from "solid-js";
-import type { JSX } from "solid-js";
+import type { ReactNode } from "react";
 import type { DialogSize } from "../components/Dialog";
 
 /** Accepted by `open`; decides how the dialog opens and behaves. */
@@ -9,7 +8,7 @@ export type DialogOpenOptions = {
   /** Dialog size; defaults to "medium". */
   size?: DialogSize;
   /** JSX body rendered inside the dialog. */
-  content: JSX.Element;
+  content: ReactNode;
   /** Called when the dialog is dismissed (X button, cancel, Escape, or overlay click). */
   onClose?: () => void;
 };
@@ -19,9 +18,4 @@ export type DialogContextAction = {
   open: (options: DialogOpenOptions) => void;
   /** Dismiss the currently open dialog, invoking its `onClose`. */
   close: () => void;
-};
-
-export type DialogContextSelect = {
-  /** Whether a dialog is currently open. */
-  isOpen: Accessor<boolean>;
 };
